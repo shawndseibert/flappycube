@@ -200,6 +200,9 @@ let lastScore = null;
 			canvas.height = Math.floor(aspectH);
 			cube.size = Math.min(canvas.width, canvas.height) * 0.08;
 			cube.x = canvas.width/2 - cube.size/2;
+			// Scale gravity and jump to canvas height for consistent feel
+			cube.gravity = canvas.height * 0.00028; // maximum floatiness
+			cube.jump = -canvas.height * 0.009; // fine-tuned ultra soft upward force
 			if (!gameActive) {
 				cube.y = canvas.height/2 - cube.size/2;
 				cube.vy = 0;
