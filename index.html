@@ -606,7 +606,6 @@ let lastScore = null;
 		// Unified touch handler for start screen (badges and start)
 		canvas.addEventListener('touchstart', function(e) {
 			if (!showStartScreen) return;
-			e.preventDefault();
 			const rect = canvas.getBoundingClientRect();
 			const touch = e.touches[0];
 			const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
