@@ -104,11 +104,11 @@
 	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 </head>
 <body>
-	<header>FlappyCube</header>
+	<!-- Header removed -->
 	<div class="game-container">
 		<canvas id="gameCanvas"></canvas>
 	</div>
-	<footer>Press SPACE to start &mdash; Old School Arcade Vibes</footer>
+	<!-- Footer removed -->
 	<script>
 		// Responsive canvas setup
 		const canvas = document.getElementById('gameCanvas');
@@ -121,16 +121,17 @@
 			size: 40,
 			vy: 0,
 			gravity: 0.18,
-			jump: -6,
+			jump: -7,
 		};
 	let gameActive = false;
 	let pipes = [];
-	let pipeGap = 0.32; // slightly narrower gap as fraction of canvas height
+	let pipeGap = 0.28; // even narrower gap as fraction of canvas height
 	let pipeWidth = 0.12; // width as fraction of canvas width
 	let pipeSpeed = 1.5; // px per frame (floatier)
 	let score = 0;
 	let highScore = Number(localStorage.getItem('flappycube_highscore')) || 0;
 	let showStartScreen = true;
+	let canStart = true;
 
 		function resetGame() {
 			pipes = [];
@@ -236,19 +237,28 @@
 				// Title
 				ctx.font = `bold ${Math.floor(canvas.height * 0.06)}px 'Press Start 2P', 'VT323', monospace`;
 				ctx.fillStyle = '#00ffe7';
-			// Calculate vertical positions for centering
-			const titleY = canvas.height * 0.28;
-			const instrY = canvas.height * 0.42;
-			const scoreY = canvas.height * 0.54;
-			ctx.fillText('FlappyCube', canvas.width/2, titleY, canvas.width * 0.9);
-			// Instructions
-			ctx.font = `bold ${Math.floor(canvas.height * 0.035)}px 'Press Start 2P', 'VT323', monospace`;
-			ctx.fillStyle = '#fff';
-			ctx.fillText('Press SPACE to Start', canvas.width/2, instrY, canvas.width * 0.9);
-			// High Score
-			ctx.font = `bold ${Math.floor(canvas.height * 0.035)}px 'Press Start 2P', 'VT323', monospace`;
-			ctx.fillStyle = '#ff00c8';
-			ctx.fillText('High Score: ' + highScore, canvas.width/2, scoreY, canvas.width * 0.9);
+		// Layout positions
+		const titleY = canvas.height * 0.08;
+	// Center high score label and number vertically
+	const scoreLabelY = canvas.height * 0.42;
+	const scoreNumY = scoreLabelY + canvas.height * 0.07;
+		const instrY = canvas.height * 0.85;
+		// Title at top center
+		ctx.font = `bold ${Math.floor(canvas.height * 0.06)}px 'Press Start 2P', 'VT323', monospace`;
+		ctx.fillStyle = '#00ffe7';
+		ctx.fillText('FlappyCube', canvas.width/2, titleY, canvas.width * 0.9);
+		// High Score label centered
+		ctx.font = `bold ${Math.floor(canvas.height * 0.03)}px 'Press Start 2P', 'VT323', monospace`;
+		ctx.fillStyle = '#ff00c8';
+		ctx.fillText('High Score', canvas.width/2, scoreLabelY, canvas.width * 0.9);
+		// High Score number large and centered
+		ctx.font = `bold ${Math.floor(canvas.height * 0.11)}px 'Press Start 2P', 'VT323', monospace`;
+		ctx.fillStyle = '#fff';
+		ctx.fillText(highScore, canvas.width/2, scoreNumY, canvas.width * 0.9);
+		// Instructions at bottom center
+		ctx.font = `bold ${Math.floor(canvas.height * 0.035)}px 'Press Start 2P', 'VT323', monospace`;
+		ctx.fillStyle = '#fff';
+	ctx.fillText('Tap to start!', canvas.width/2, instrY, canvas.width * 0.9);
 				ctx.restore();
 			}
 		}
@@ -269,6 +279,8 @@
 						localStorage.setItem('flappycube_highscore', highScore);
 					}
 					showStartScreen = true;
+					canStart = false;
+					setTimeout(() => { canStart = true; }, 1000);
 				}
 				// Ceiling collision
 				if (cube.y < 0) {
@@ -300,6 +312,8 @@
 							localStorage.setItem('flappycube_highscore', highScore);
 						}
 						showStartScreen = true;
+						canStart = false;
+						setTimeout(() => { canStart = true; }, 1000);
 					}
 					// Score
 					if (!pipe.passed && pipe.x + pipe.width < cube.x) {
@@ -318,7 +332,7 @@
 		document.addEventListener('keydown', function(e) {
 			if (e.code === 'Space' && !e.repeat && !spacePressed) {
 				spacePressed = true;
-				if (showStartScreen) {
+				if (showStartScreen && canStart) {
 					showStartScreen = false;
 					gameActive = true;
 					cube.vy = cube.jump;
@@ -341,7 +355,7 @@
 		// Touch support for mobile
 		canvas.addEventListener('touchstart', function(e) {
 			e.preventDefault();
-			if (showStartScreen) {
+			if (showStartScreen && canStart) {
 				showStartScreen = false;
 				gameActive = true;
 				cube.vy = cube.jump;
