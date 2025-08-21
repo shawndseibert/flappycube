@@ -129,6 +129,8 @@
 	let pipeWidth = 0.12; // width as fraction of canvas width
 	let pipeSpeed = 1.5; // px per frame (floatier)
 	let score = 0;
+	let highScore = Number(localStorage.getItem('flappycube_highscore')) || 0;
+	let showStartScreen = true;
 
 		function resetGame() {
 			pipes = [];
@@ -211,15 +213,44 @@
 			ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
 			ctx.restore();
 			// Draw score
-			ctx.save();
-			ctx.font = `bold ${Math.floor(canvas.height * 0.07)}px 'Press Start 2P', 'VT323', monospace`;
+			if (gameActive) {
+				ctx.save();
+				ctx.font = `bold ${Math.floor(canvas.height * 0.07)}px 'Press Start 2P', 'VT323', monospace`;
+				ctx.fillStyle = '#fff';
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'top';
+				ctx.shadowColor = '#00ffe7';
+				ctx.shadowBlur = 8;
+				ctx.fillText(score, canvas.width/2, 12);
+				ctx.restore();
+			}
+			// Draw start screen overlay
+			if (showStartScreen) {
+				ctx.save();
+				ctx.globalAlpha = 0.92;
+				ctx.fillStyle = '#18181b';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.globalAlpha = 1;
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'top';
+				// Title
+				ctx.font = `bold ${Math.floor(canvas.height * 0.06)}px 'Press Start 2P', 'VT323', monospace`;
+				ctx.fillStyle = '#00ffe7';
+			// Calculate vertical positions for centering
+			const titleY = canvas.height * 0.28;
+			const instrY = canvas.height * 0.42;
+			const scoreY = canvas.height * 0.54;
+			ctx.fillText('FlappyCube', canvas.width/2, titleY, canvas.width * 0.9);
+			// Instructions
+			ctx.font = `bold ${Math.floor(canvas.height * 0.035)}px 'Press Start 2P', 'VT323', monospace`;
 			ctx.fillStyle = '#fff';
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'top';
-			ctx.shadowColor = '#00ffe7';
-			ctx.shadowBlur = 8;
-			ctx.fillText(score, canvas.width/2, 12);
-			ctx.restore();
+			ctx.fillText('Press SPACE to Start', canvas.width/2, instrY, canvas.width * 0.9);
+			// High Score
+			ctx.font = `bold ${Math.floor(canvas.height * 0.035)}px 'Press Start 2P', 'VT323', monospace`;
+			ctx.fillStyle = '#ff00c8';
+			ctx.fillText('High Score: ' + highScore, canvas.width/2, scoreY, canvas.width * 0.9);
+				ctx.restore();
+			}
 		}
 
 		let pipeTimer = 0;
@@ -232,6 +263,12 @@
 					cube.y = canvas.height - cube.size;
 					cube.vy = 0;
 					gameActive = false;
+					// Game over, update high score and show start screen
+					if (score > highScore) {
+						highScore = score;
+						localStorage.setItem('flappycube_highscore', highScore);
+					}
+					showStartScreen = true;
 				}
 				// Ceiling collision
 				if (cube.y < 0) {
@@ -257,6 +294,12 @@
 						(cube.y < pipe.gapY || cube.y + cube.size > pipe.gapY + pipe.gapHeight)
 					) {
 						gameActive = false;
+						// Game over, update high score and show start screen
+						if (score > highScore) {
+							highScore = score;
+							localStorage.setItem('flappycube_highscore', highScore);
+						}
+						showStartScreen = true;
 					}
 					// Score
 					if (!pipe.passed && pipe.x + pipe.width < cube.x) {
@@ -275,7 +318,12 @@
 		document.addEventListener('keydown', function(e) {
 			if (e.code === 'Space' && !e.repeat && !spacePressed) {
 				spacePressed = true;
-				if (!gameActive) {
+				if (showStartScreen) {
+					showStartScreen = false;
+					gameActive = true;
+					cube.vy = cube.jump;
+					resetGame();
+				} else if (!gameActive) {
 					gameActive = true;
 					cube.vy = cube.jump;
 					resetGame();
@@ -287,6 +335,23 @@
 		document.addEventListener('keyup', function(e) {
 			if (e.code === 'Space') {
 				spacePressed = false;
+			}
+		});
+
+		// Touch support for mobile
+		canvas.addEventListener('touchstart', function(e) {
+			e.preventDefault();
+			if (showStartScreen) {
+				showStartScreen = false;
+				gameActive = true;
+				cube.vy = cube.jump;
+				resetGame();
+			} else if (!gameActive) {
+				gameActive = true;
+				cube.vy = cube.jump;
+				resetGame();
+			} else {
+				cube.vy = cube.jump;
 			}
 		});
 
