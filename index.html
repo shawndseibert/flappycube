@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>FlappyCube</title>
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		body {
+			min-height: 100vh;
+			background: linear-gradient(135deg, #18181b 60%, #22223b 100%);
+			color: #fff;
+			font-family: 'Press Start 2P', 'VT323', monospace, Arial, sans-serif;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-start;
+			padding: 0;
+			overflow: hidden;
+		}
+		header {
+				margin-top: 2vh;
+				font-size: clamp(14px, 2.5cqw, 28px);
+				letter-spacing: 0.1em;
+				color: #00ffe7;
+				text-shadow: 0 0 8px #00ffe7, 0 0 2px #fff;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+		}
+		.game-container {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				box-sizing: border-box;
+				padding: 0;
+				aspect-ratio: 9/16;
+				max-width: 98vw;
+				max-height: 80vh;
+				margin: auto;
+		}
+		canvas {
+			background: #18181b;
+			border: 4px solid #00ffe7;
+			box-shadow: 0 0 32px #00ffe744, 0 0 8px #fff2;
+			border-radius: 16px;
+			display: block;
+			margin: auto;
+			width: 100%;
+			height: auto;
+			max-width: 98vw;
+			max-height: 80vh;
+			aspect-ratio: 9/16;
+			transition: box-shadow 0.2s;
+			box-sizing: border-box;
+		}
+		footer {
+				margin: 2vh 0 1vh 0;
+				font-size: clamp(12px, 1.8cqw, 20px);
+				color: #ff00c8;
+				text-shadow: 0 0 6px #ff00c8, 0 0 2px #fff;
+				text-align: center;
+				overflow-wrap: break-word;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+		}
+		@media (max-width: 600px) {
+			body {
+				padding: 0;
+			}
+			.game-container {
+					container-type: inline-size;
+				padding: 0;
+				height: calc(100vh - 60px);
+			}
+				header {
+					font-size: clamp(12px, 4vw, 22px);
+					white-space: normal;
+					text-align: center;
+					overflow-wrap: break-word;
+				}
+			canvas {
+				width: 100%;
+				height: auto;
+				max-width: 98vw;
+				max-height: 70vh;
+				aspect-ratio: 9/16;
+			}
+				footer {
+					font-size: clamp(10px, 3vw, 16px);
+					white-space: normal;
+					text-align: center;
+					overflow-wrap: break-word;
+				}
+		}
+	</style>
+	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+	<header>FlappyCube</header>
+	<div class="game-container">
+		<canvas id="gameCanvas"></canvas>
+	</div>
+	<footer>Press SPACE to start &mdash; Old School Arcade Vibes</footer>
+	<script>
+		// Responsive canvas setup
+		const canvas = document.getElementById('gameCanvas');
+		const ctx = canvas.getContext('2d');
+
+		// Cube physics
+		let cube = {
+			x: 0,
+			y: 0,
+			size: 40,
+			vy: 0,
+			gravity: 0.18,
+			jump: -6,
+		};
+	let gameActive = false;
+	let pipes = [];
+	let pipeGap = 0.32; // slightly narrower gap as fraction of canvas height
+	let pipeWidth = 0.12; // width as fraction of canvas width
+	let pipeSpeed = 1.5; // px per frame (floatier)
+	let score = 0;
+
+		function resetGame() {
+			pipes = [];
+			score = 0;
+		}
+
+		function spawnPipe() {
+			let gapHeight = canvas.height * pipeGap;
+			let minY = canvas.height * 0.12;
+			let maxY = canvas.height - gapHeight - minY;
+			let gapY = Math.floor(Math.random() * (maxY - minY) + minY);
+			pipes.push({
+				x: canvas.width,
+				gapY: gapY,
+				width: Math.floor(canvas.width * pipeWidth),
+				gapHeight: gapHeight,
+				passed: false
+			});
+		}
+
+		function resizeCanvas() {
+			// Always use a fixed portrait aspect ratio for the game area
+			let w = canvas.parentElement.clientWidth;
+			let h = canvas.parentElement.clientHeight;
+			let aspectW = w;
+			let aspectH = w * 16 / 9;
+			if (aspectH > h) {
+				aspectH = h;
+				aspectW = h * 9 / 16;
+			}
+			canvas.width = Math.floor(aspectW);
+			canvas.height = Math.floor(aspectH);
+			cube.size = Math.min(canvas.width, canvas.height) * 0.08;
+			cube.x = canvas.width/2 - cube.size/2;
+			if (!gameActive) {
+				cube.y = canvas.height/2 - cube.size/2;
+				cube.vy = 0;
+			}
+			resetGame();
+			drawUI();
+		}
+		window.addEventListener('resize', resizeCanvas);
+
+	function drawUI() {
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			// Draw background grid for arcade accent
+			ctx.save();
+			ctx.globalAlpha = 0.15;
+			ctx.strokeStyle = '#00ffe7';
+			for (let x = 0; x < canvas.width; x += 40) {
+				ctx.beginPath();
+				ctx.moveTo(x, 0);
+				ctx.lineTo(x, canvas.height);
+				ctx.stroke();
+			}
+			for (let y = 0; y < canvas.height; y += 40) {
+				ctx.beginPath();
+				ctx.moveTo(0, y);
+				ctx.lineTo(canvas.width, y);
+				ctx.stroke();
+			}
+			ctx.restore();
+			// Draw pipes
+			for (let pipe of pipes) {
+				ctx.save();
+				ctx.fillStyle = '#00ffe7';
+				ctx.shadowColor = '#00ffe7';
+				ctx.shadowBlur = 8;
+				// Top pipe
+				ctx.fillRect(pipe.x, 0, pipe.width, pipe.gapY);
+				// Bottom pipe
+				ctx.fillRect(pipe.x, pipe.gapY + pipe.gapHeight, pipe.width, canvas.height - (pipe.gapY + pipe.gapHeight));
+				ctx.restore();
+			}
+			// Draw cube
+			ctx.save();
+			ctx.fillStyle = '#ff00c8';
+			ctx.shadowColor = '#ff00c8';
+			ctx.shadowBlur = 16;
+			ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+			ctx.restore();
+			// Draw score
+			ctx.save();
+			ctx.font = `bold ${Math.floor(canvas.height * 0.07)}px 'Press Start 2P', 'VT323', monospace`;
+			ctx.fillStyle = '#fff';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'top';
+			ctx.shadowColor = '#00ffe7';
+			ctx.shadowBlur = 8;
+			ctx.fillText(score, canvas.width/2, 12);
+			ctx.restore();
+		}
+
+		let pipeTimer = 0;
+		function gameLoop() {
+			if (gameActive) {
+				cube.vy += cube.gravity;
+				cube.y += cube.vy;
+				// Floor collision
+				if (cube.y + cube.size > canvas.height) {
+					cube.y = canvas.height - cube.size;
+					cube.vy = 0;
+					gameActive = false;
+				}
+				// Ceiling collision
+				if (cube.y < 0) {
+					cube.y = 0;
+					cube.vy = 0;
+				}
+				// Pipes logic
+				pipeTimer++;
+				if (pipeTimer % Math.floor(canvas.width / (pipeSpeed * 2)) === 0) {
+					spawnPipe();
+				}
+				for (let pipe of pipes) {
+					pipe.x -= pipeSpeed;
+				}
+				// Remove pipes off screen
+				while (pipes.length && pipes[0].x + pipes[0].width < 0) {
+					pipes.shift();
+				}
+				// Collision detection
+				for (let pipe of pipes) {
+					if (
+						cube.x + cube.size > pipe.x && cube.x < pipe.x + pipe.width &&
+						(cube.y < pipe.gapY || cube.y + cube.size > pipe.gapY + pipe.gapHeight)
+					) {
+						gameActive = false;
+					}
+					// Score
+					if (!pipe.passed && pipe.x + pipe.width < cube.x) {
+						pipe.passed = true;
+						score++;
+					}
+				}
+			} else {
+				pipeTimer = 0;
+			}
+			drawUI();
+			requestAnimationFrame(gameLoop);
+		}
+
+		let spacePressed = false;
+		document.addEventListener('keydown', function(e) {
+			if (e.code === 'Space' && !e.repeat && !spacePressed) {
+				spacePressed = true;
+				if (!gameActive) {
+					gameActive = true;
+					cube.vy = cube.jump;
+					resetGame();
+				} else {
+					cube.vy = cube.jump;
+				}
+			}
+		});
+		document.addEventListener('keyup', function(e) {
+			if (e.code === 'Space') {
+				spacePressed = false;
+			}
+		});
+
+		// Initial resize and start loop
+		resizeCanvas();
+		requestAnimationFrame(gameLoop);
+	</script>
+</body>
+</html>
