@@ -603,23 +603,38 @@ let lastScore = null;
 			}
 		});
 
-		// Touch support for mobile
+		// Unified touch handler for start screen (badges and start)
 		canvas.addEventListener('touchstart', function(e) {
+			if (!showStartScreen) return;
 			e.preventDefault();
-			if (!canStart && showStartScreen) return; // Block input after death until allowed
-			if (showStartScreen && canStart) {
+			const rect = canvas.getBoundingClientRect();
+			const touch = e.touches[0];
+			const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+			const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
+			// If popup is open, dismiss it on any touch
+			if (window.badgePopup) {
+				window.badgePopup = null;
+				drawUI();
+				return;
+			}
+			// Otherwise, check for badge touch
+			if (window.badgeRegions) {
+				for (let region of window.badgeRegions) {
+					let dx = mx - region.x;
+					let dy = my - region.y;
+					if (dx*dx + dy*dy < region.r*region.r) {
+						window.badgePopup = { badge: region.badge };
+						drawUI();
+						return;
+					}
+				}
+			}
+			// If not touching a badge, start the game (if allowed)
+			if (canStart) {
 				showStartScreen = false;
 				gameActive = true;
 				cube.vy = cube.jump;
 				resetGame();
-				playJump();
-			} else if (!gameActive) {
-				gameActive = true;
-				cube.vy = cube.jump;
-				resetGame();
-				playJump();
-			} else {
-				cube.vy = cube.jump;
 				playJump();
 			}
 		});
