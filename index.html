@@ -1,3 +1,4 @@
+        
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,11 +107,59 @@
 </head>
 <body>
 	<!-- Header removed -->
+	<!-- Hamburger menu -->
+	<div id="menuBtn" style="position: absolute; top: 18px; right: 18px; z-index: 10; cursor: pointer;">
+		<div style="width: 38px; height: 38px; background: #22223b; border-radius: 12px; box-shadow: 0 0 8px #00ffe7; display: flex; align-items: center; justify-content: center;">
+			<div style="display: flex; flex-direction: column; gap: 6px;">
+				<div style="width: 22px; height: 4px; background: #00ffe7; border-radius: 2px;"></div>
+				<div style="width: 22px; height: 4px; background: #00ffe7; border-radius: 2px;"></div>
+				<div style="width: 22px; height: 4px; background: #00ffe7; border-radius: 2px;"></div>
+			</div>
+		</div>
+	</div>
+	<!-- Menu popup -->
+	<div id="menuPopup" style="display:none; position: absolute; top: 62px; right: 18px; z-index: 20; background: #22223b; border-radius: 16px; box-shadow: 0 0 16px #00ffe7; border: 2px solid #00ffe7; min-width: 160px; padding: 16px 0;">
+	<button id="newGameBtn" style="width: 100%; background: none; border: none; color: #fff; font-family: 'Press Start 2P', 'VT323', monospace; font-size: 18px; padding: 12px 0; cursor: pointer; text-align: center; white-space: nowrap; overflow: hidden;">New Game</button>
+	<button id="muteBtn" style="width: 100%; background: none; border: none; color: #fff; font-family: 'Press Start 2P', 'VT323', monospace; font-size: 18px; padding: 12px 0; cursor: pointer; text-align: center; white-space: nowrap; overflow: hidden;">Mute Sounds: Off</button>
+	</div>
 	<div class="game-container">
 		<canvas id="gameCanvas"></canvas>
 	</div>
 	<!-- Footer removed -->
 	<script>
+		// Mute sounds logic
+		let soundsMuted = false;
+		const muteBtn = document.getElementById('muteBtn');
+		muteBtn.addEventListener('click', function() {
+			soundsMuted = !soundsMuted;
+			muteBtn.textContent = soundsMuted ? 'Mute Sounds: On' : 'Mute Sounds: Off';
+			menuPopup.style.display = 'none';
+		});
+		// Hamburger menu logic
+		const menuBtn = document.getElementById('menuBtn');
+		const menuPopup = document.getElementById('menuPopup');
+		const newGameBtn = document.getElementById('newGameBtn');
+		menuBtn.addEventListener('click', function(e) {
+			menuPopup.style.display = menuPopup.style.display === 'none' ? 'block' : 'none';
+			e.stopPropagation();
+		});
+		// Hide menu when clicking outside
+		document.addEventListener('mousedown', function(e) {
+			if (!menuPopup.contains(e.target) && !menuBtn.contains(e.target)) {
+				menuPopup.style.display = 'none';
+			}
+		});
+		// New Game button logic
+		newGameBtn.addEventListener('click', function() {
+			localStorage.removeItem('flappycube_highscore');
+			highScore = 0;
+			lastScores = [];
+			lastScore = null;
+			showStartScreen = true;
+			canStart = true;
+			menuPopup.style.display = 'none';
+			drawUI();
+		});
 		// Soft sine wave sound effects using Tone.js
 const jumpSynth = new Tone.Synth({
     oscillator: { type: 'sine' },
@@ -131,13 +180,13 @@ function playJump() {
     const base = Tone.Frequency('C5').toFrequency();
     const semitoneOffset = (Math.random() - 0.5) * 4; // -2 to +2 semitones
     const note = Tone.Frequency(base).transpose(semitoneOffset);
-    jumpSynth.triggerAttackRelease(note, 0.08);
+	if (!soundsMuted) jumpSynth.triggerAttackRelease(note, 0.08);
 }
 function playScore() {
-    scoreSynth.triggerAttackRelease('E5', 0.12);
+	if (!soundsMuted) scoreSynth.triggerAttackRelease('E5', 0.12);
 }
 function playDeath() {
-    deathSynth.triggerAttackRelease('0.08');
+	if (!soundsMuted) deathSynth.triggerAttackRelease('0.08');
 }
 
 		// Responsive canvas setup
@@ -203,6 +252,8 @@ let lastScore = null;
 			// Scale gravity and jump to canvas height for consistent feel
 			cube.gravity = canvas.height * 0.00028; // maximum floatiness
 			cube.jump = -canvas.height * 0.009; // fine-tuned ultra soft upward force
+			// Scale pipe speed to canvas width for consistent speed
+			pipeSpeed = canvas.width * 0.003; // slightly faster pipe speed
 			if (!gameActive) {
 				cube.y = canvas.height/2 - cube.size/2;
 				cube.vy = 0;
@@ -356,12 +407,98 @@ let lastScore = null;
 			ctx.fillText(avg, canvas.width/2, avgCenterY + canvas.height * 0.01, canvas.width * 0.9);
 			ctx.globalAlpha = 1;
 		}
+		// BADGES: Milestones with emoji
+		// Define 20 milestones and emojis
+		const badgeMilestones = [
+			{score: 1, emoji: '🐣', label: 'First Flap'},
+			{score: 5, emoji: '🟪', label: 'Cube Novice'},
+			{score: 10, emoji: '🟩', label: 'Getting Started'},
+			{score: 15, emoji: '🌱', label: 'Sprout'},
+			{score: 20, emoji: '💎', label: 'Gem'},
+			{score: 25, emoji: '🦄', label: 'Unicorn'},
+			{score: 30, emoji: '🔥', label: 'On Fire'},
+			{score: 35, emoji: '🎯', label: 'Sharpshooter'},
+			{score: 40, emoji: '🚀', label: 'Rocket'},
+			{score: 45, emoji: '🌟', label: 'Star'},
+			{score: 50, emoji: '🏆', label: 'Champion'},
+			{score: 60, emoji: '🧠', label: 'Brainiac'},
+			{score: 70, emoji: '👑', label: 'Royalty'},
+			{score: 80, emoji: '🦾', label: 'Machine'},
+			{score: 90, emoji: '🕹️', label: 'Gamer'},
+			{score: 100, emoji: '🌈', label: 'Legend'},
+			{score: 120, emoji: '🧙‍♂️', label: 'Wizard'},
+			{score: 150, emoji: '🦅', label: 'Eagle'},
+			{score: 200, emoji: '💯', label: 'Centurion'},
+			{score: 300, emoji: '👽', label: 'Alien'}
+		];
+		// Find earned badges
+		let earnedBadges = badgeMilestones.filter(b => highScore >= b.score);
+		// Draw badges in a grid below the scores and store clickable regions
+		window.badgeRegions = [];
+		if (earnedBadges.length > 0) {
+			const badgeRows = Math.ceil(earnedBadges.length / 10);
+			const badgeSize = Math.floor(canvas.height * 0.045);
+			const badgeYStart = scoreNumY + canvas.height * 0.13;
+			ctx.font = `${badgeSize}px 'Segoe UI Emoji', 'Press Start 2P', 'VT323', monospace`;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			for (let row = 0; row < badgeRows; row++) {
+				let badgesInRow = earnedBadges.slice(row * 10, (row + 1) * 10);
+				let rowY = badgeYStart + row * (badgeSize + 6);
+				let spacing = canvas.width / (badgesInRow.length + 1);
+				for (let i = 0; i < badgesInRow.length; i++) {
+					let badge = badgesInRow[i];
+					let x = spacing * (i + 1);
+					ctx.globalAlpha = 1;
+					ctx.fillText(badge.emoji, x, rowY);
+					// Store clickable region for badge
+					window.badgeRegions.push({
+						x: x,
+						y: rowY,
+						r: badgeSize * 0.6,
+						badge: badge
+					});
+				}
+			}
+			// (No badge labels under emoji; info is in popup)
+			ctx.globalAlpha = 1;
+		}
+		// Draw badge popup if needed
+		if (window.badgePopup) {
+			const popup = window.badgePopup;
+			const popupW = Math.floor(canvas.width * 0.5);
+			const popupH = Math.floor(canvas.height * 0.22);
+			const popupX = canvas.width/2 - popupW/2;
+			const popupY = canvas.height/2 - popupH/2;
+			ctx.save();
+			ctx.globalAlpha = 0.98;
+			ctx.fillStyle = '#22223b';
+			ctx.strokeStyle = '#00ffe7';
+			ctx.lineWidth = 5;
+			ctx.beginPath();
+			ctx.roundRect(popupX, popupY, popupW, popupH, 24);
+			ctx.fill();
+			ctx.stroke();
+			ctx.globalAlpha = 1;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.font = `bold ${Math.floor(popupH * 0.32)}px 'Segoe UI Emoji', 'Press Start 2P', 'VT323', monospace`;
+			ctx.fillStyle = '#00ffe7';
+			ctx.fillText(popup.badge.emoji, canvas.width/2, popupY + popupH * 0.32);
+			ctx.font = `bold ${Math.floor(popupH * 0.18)}px 'VT323', monospace`;
+			ctx.fillStyle = '#fff';
+			ctx.fillText(popup.badge.label, canvas.width/2, popupY + popupH * 0.62);
+			ctx.font = `bold ${Math.floor(popupH * 0.13)}px 'VT323', monospace`;
+			ctx.fillStyle = '#ff00c8';
+			ctx.fillText(`Score: ${popup.badge.score}`, canvas.width/2, popupY + popupH * 0.82);
+			ctx.restore();
+		}
 		// Instructions at bottom center
 		ctx.font = `bold ${Math.floor(canvas.height * 0.035)}px 'Press Start 2P', 'VT323', monospace`;
 		ctx.fillStyle = '#fff';
-	ctx.fillText('Tap to start!', canvas.width/2, instrY, canvas.width * 0.9);
-				ctx.restore();
-			}
+		ctx.fillText('Tap to start!', canvas.width/2, instrY, canvas.width * 0.9);
+		ctx.restore();
+	}
 		}
 
 		let pipeTimer = 0;
@@ -487,9 +624,58 @@ let lastScore = null;
 			}
 		});
 
+		// Mouse click support for desktop (game actions only, not start screen)
+		canvas.addEventListener('mousedown', function(e) {
+			if (showStartScreen) return; // Let unified handler below handle start screen clicks
+			if (!canStart && showStartScreen) return; // Block input after death until allowed
+			if (!gameActive) {
+				gameActive = true;
+				cube.vy = cube.jump;
+				resetGame();
+				playJump();
+			} else {
+				cube.vy = cube.jump;
+				playJump();
+			}
+		});
+
 		// Initial resize and start loop
 		resizeCanvas();
 		requestAnimationFrame(gameLoop);
+
+		// Unified start screen click handler (badges and start)
+		canvas.addEventListener('mousedown', function(e) {
+			if (!showStartScreen) return;
+			const rect = canvas.getBoundingClientRect();
+			const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+			const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+			// If popup is open, dismiss it on any click
+			if (window.badgePopup) {
+				window.badgePopup = null;
+				drawUI();
+				return;
+			}
+			// Otherwise, check for badge click
+			if (window.badgeRegions) {
+				for (let region of window.badgeRegions) {
+					let dx = mx - region.x;
+					let dy = my - region.y;
+					if (dx*dx + dy*dy < region.r*region.r) {
+						window.badgePopup = { badge: region.badge };
+						drawUI();
+						return;
+					}
+				}
+			}
+			// If not clicking a badge, start the game (if allowed)
+			if (canStart) {
+				showStartScreen = false;
+				gameActive = true;
+				cube.vy = cube.jump;
+				resetGame();
+				playJump();
+			}
+		});
 	</script>
 </body>
 </html>
