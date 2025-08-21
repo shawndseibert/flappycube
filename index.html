@@ -100,17 +100,183 @@
 					overflow-wrap: break-word;
 				}
 		}
-	</style>
+			.badge-btn:focus {
+				outline: 2px solid #ff00c8;
+				box-shadow: 0 0 8px #ff00c8;
+			}
+			#badgeBar {
+				user-select: none;
+				font-family: 'Press Start 2P','VT323',monospace;
+				margin-bottom: 0.5vh;
+			}
+			#badgeModal {
+				display: none;
+				position: fixed;
+				top: 0; left: 0;
+				width: 100vw; height: 100vh;
+				background: rgba(24,24,27,0.92);
+				z-index: 99;
+				align-items: center;
+				justify-content: center;
+				flex-direction: column;
+				text-align: center;
+				animation: badgeFadeIn 0.2s;
+			}
+			@keyframes badgeFadeIn {
+				from { opacity: 0; }
+				to { opacity: 1; }
+			}
+			#badgeModalContent {
+				background: #22223b;
+				border-radius: 18px;
+				padding: 2em 1.5em;
+				box-shadow: 0 0 24px #00ffe7cc,0 0 8px #fff2;
+				color: #fff;
+				max-width: 90vw;
+				max-height: 70vh;
+				overflow: auto;
+				font-family: 'Press Start 2P','VT323',monospace;
+			}
+			#badgeModal button {
+				margin-top: 1.2em;
+				font-size: 1em;
+				padding: 0.5em 1.5em;
+				border-radius: 8px;
+				border: none;
+				background: #00ffe7;
+				color: #22223b;
+				font-family: 'Press Start 2P','VT323',monospace;
+				cursor: pointer;
+				box-shadow: 0 0 8px #00ffe7;
+				transition: background 0.15s;
+			}
+			#badgeModal button:hover {
+				background: #ff00c8;
+				color: #fff;
+			}
+		 </style>
 	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
 </head>
 <body>
 	<!-- Header removed -->
+	<!-- Milestone Badges -->
+	<div id="badgeBar" style="width:100%;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:1.5vh;margin-bottom:0.5vh;gap:0.5em;"></div>
+	<div id="badgeModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(24,24,27,0.92);z-index:99;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
+		<div id="badgeModalContent" style="background:#22223b;border-radius:18px;padding:2em 1.5em;box-shadow:0 0 24px #00ffe7cc,0 0 8px #fff2;color:#fff;max-width:90vw;max-height:70vh;overflow:auto;">
+			<span id="badgeModalEmoji" style="font-size:3em;display:block;margin-bottom:0.5em;"></span>
+			<div id="badgeModalTitle" style="font-size:1.3em;font-weight:bold;margin-bottom:0.5em;"></div>
+			<div id="badgeModalDesc" style="font-size:1em;"></div>
+			<button onclick="closeBadgeModal()" style="margin-top:1.2em;font-size:1em;padding:0.5em 1.5em;border-radius:8px;border:none;background:#00ffe7;color:#22223b;font-family:'Press Start 2P','VT323',monospace;cursor:pointer;box-shadow:0 0 8px #00ffe7;">Close</button>
+		</div>
+	</div>
 	<div class="game-container">
 		<canvas id="gameCanvas"></canvas>
 	</div>
 	<!-- Footer removed -->
 	<script>
+// Milestone Badges Data
+const milestoneBadges = [
+	{emoji:'🎉',title:'First Jump!',desc:'You started your first game.'},
+	{emoji:'💯',title:'Score 100',desc:'Reach a score of 100.'},
+	{emoji:'🦄',title:'Lucky Cube',desc:'Score exactly 7.'},
+	{emoji:'🚀',title:'Speedster',desc:'Score 20 in under 30 seconds.'},
+	{emoji:'👑',title:'High Roller',desc:'Beat your high score.'},
+	{emoji:'🌈',title:'Color Burst',desc:'Unlock a secret color.'},
+	{emoji:'🧊',title:'Ice Cube',desc:'Score 50 without hitting the top.'},
+	{emoji:'🔥',title:'On Fire!',desc:'Score 10 in a row without dying.'},
+	{emoji:'🕹️',title:'Retro Gamer',desc:'Play 10 games.'},
+	{emoji:'🎵',title:'Sound Master',desc:'Trigger all sound effects.'},
+	{emoji:'🧠',title:'Brainy',desc:'Score 42.'},
+	{emoji:'🌟',title:'Star Player',desc:'Score 5 in your first game.'},
+	{emoji:'🥇',title:'Gold Medal',desc:'Score 200.'},
+	{emoji:'🦋',title:'Graceful',desc:'Score 15 without touching pipes.'},
+	{emoji:'🧙‍♂️',title:'Wizard',desc:'Score 77.'},
+	{emoji:'🦾',title:'Robot Reflex',desc:'Score 30 with no mistakes.'},
+	{emoji:'🪐',title:'Space Cube',desc:'Score 99.'},
+	{emoji:'🎲',title:'Randomizer',desc:'Score a random number.'},
+	{emoji:'🧸',title:'Soft Landing',desc:'Lose by hitting the ground.'},
+	{emoji:'👻',title:'Ghost Run',desc:'Score 13.'}
+];
+
+// Track earned badges in localStorage
+function getEarnedBadges() {
+	let earned = localStorage.getItem('flappycube_badges');
+	if (!earned) return Array(milestoneBadges.length).fill(false);
+	return JSON.parse(earned);
+}
+function setEarnedBadge(idx) {
+	let arr = getEarnedBadges();
+	arr[idx] = true;
+	localStorage.setItem('flappycube_badges', JSON.stringify(arr));
+}
+
+// Render only earned badges above the map
+function renderBadges() {
+	const bar = document.getElementById('badgeBar');
+	bar.innerHTML = '';
+	const earned = getEarnedBadges();
+	milestoneBadges.forEach((badge, i) => {
+		if (!earned[i]) return;
+		const btn = document.createElement('button');
+		btn.className = 'badge-btn';
+		btn.setAttribute('tabindex',0);
+		btn.setAttribute('aria-label',badge.title);
+		btn.style.background='none';
+		btn.style.border='none';
+		btn.style.fontSize='2em';
+		btn.style.cursor='pointer';
+		btn.style.transition='transform 0.15s';
+		btn.style.filter='drop-shadow(0 0 6px #00ffe7cc)';
+		btn.innerText = badge.emoji;
+		btn.onclick = () => showBadgeModal(i);
+		btn.onpointerdown = () => btn.style.transform='scale(1.2)';
+		btn.onpointerup = btn.onpointerleave = () => btn.style.transform='scale(1)';
+		bar.appendChild(btn);
+	});
+}
+
+function showBadgeModal(idx) {
+	const badge = milestoneBadges[idx];
+	document.getElementById('badgeModalEmoji').innerText = badge.emoji;
+	document.getElementById('badgeModalTitle').innerText = badge.title;
+	document.getElementById('badgeModalDesc').innerText = badge.desc;
+	document.getElementById('badgeModal').style.display = 'flex';
+}
+function closeBadgeModal() {
+	document.getElementById('badgeModal').style.display = 'none';
+}
+window.addEventListener('DOMContentLoaded', renderBadges);
+
+// Achievement logic (demo: add more triggers as needed)
+function checkAchievements() {
+	let earned = getEarnedBadges();
+	// First Jump
+	if (!earned[0] && gameActive && score === 0 && pipes.length === 0) {
+		setEarnedBadge(0);
+		renderBadges();
+	}
+	// Score milestones
+	if (!earned[1] && score >= 100) { setEarnedBadge(1); renderBadges(); }
+	if (!earned[2] && score === 7) { setEarnedBadge(2); renderBadges(); }
+	if (!earned[3] && score >= 20 && (window._lastFrame && performance.now()-window._lastFrame<30000)) { setEarnedBadge(3); renderBadges(); }
+	if (!earned[4] && score > highScore) { setEarnedBadge(4); renderBadges(); }
+	if (!earned[5] && window.secretColorUnlocked) { setEarnedBadge(5); renderBadges(); }
+	if (!earned[6] && score >= 50 && !window.hitTop) { setEarnedBadge(6); renderBadges(); }
+	if (!earned[7] && window.streak10) { setEarnedBadge(7); renderBadges(); }
+	if (!earned[8] && window.gamesPlayed >= 10) { setEarnedBadge(8); renderBadges(); }
+	if (!earned[9] && window.allSoundsPlayed) { setEarnedBadge(9); renderBadges(); }
+	if (!earned[10] && score === 42) { setEarnedBadge(10); renderBadges(); }
+	if (!earned[11] && lastScore === 5 && window.gamesPlayed === 1) { setEarnedBadge(11); renderBadges(); }
+	if (!earned[12] && score >= 200) { setEarnedBadge(12); renderBadges(); }
+	if (!earned[13] && score >= 15 && !window.hitPipe) { setEarnedBadge(13); renderBadges(); }
+	if (!earned[14] && score === 77) { setEarnedBadge(14); renderBadges(); }
+	if (!earned[15] && score >= 30 && !window.mistakes) { setEarnedBadge(15); renderBadges(); }
+	if (!earned[16] && score === 99) { setEarnedBadge(16); renderBadges(); }
+	if (!earned[17] && window.randomScore) { setEarnedBadge(17); renderBadges(); }
+	if (!earned[18] && !gameActive && window.hitGround) { setEarnedBadge(18); renderBadges(); }
+	if (!earned[19] && score === 13) { setEarnedBadge(19); renderBadges(); }
+}
 		// Soft sine wave sound effects using Tone.js
 const jumpSynth = new Tone.Synth({
     oscillator: { type: 'sine' },
@@ -264,6 +430,7 @@ let lastScore = null;
 	}
 
 	function drawUI() {
+		checkAchievements();
 		drawParallaxBackground(score);
 		// ...existing code...
 			// Draw pipes
