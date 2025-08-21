@@ -102,6 +102,7 @@
 		}
 	</style>
 	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
 </head>
 <body>
 	<!-- Header removed -->
@@ -110,6 +111,35 @@
 	</div>
 	<!-- Footer removed -->
 	<script>
+		// Soft sine wave sound effects using Tone.js
+const jumpSynth = new Tone.Synth({
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.01, decay: 0.03, sustain: 0.05, release: 0.04 }
+}).toDestination();
+jumpSynth.volume.value = -6;
+const scoreSynth = new Tone.Synth({
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.08 }
+}).toDestination();
+const deathSynth = new Tone.NoiseSynth({
+    noise: { type: 'white' },
+    envelope: { attack: 0.01, decay: 0.08, sustain: 0, release: 0.08 }
+}).toDestination();
+deathSynth.volume.value = -12;
+function playJump() {
+    // Randomize pitch by +/- 2 semitones
+    const base = Tone.Frequency('C5').toFrequency();
+    const semitoneOffset = (Math.random() - 0.5) * 4; // -2 to +2 semitones
+    const note = Tone.Frequency(base).transpose(semitoneOffset);
+    jumpSynth.triggerAttackRelease(note, 0.08);
+}
+function playScore() {
+    scoreSynth.triggerAttackRelease('E5', 0.12);
+}
+function playDeath() {
+    deathSynth.triggerAttackRelease('0.08');
+}
+
 		// Responsive canvas setup
 		const canvas = document.getElementById('gameCanvas');
 		const ctx = canvas.getContext('2d');
@@ -129,6 +159,8 @@
 	let pipeWidth = 0.12; // width as fraction of canvas width
 	let pipeSpeed = 1.5; // px per frame (floatier)
 	let score = 0;
+let lastScores = [];
+let lastScore = null;
 	let highScore = Number(localStorage.getItem('flappycube_highscore')) || 0;
 	let showStartScreen = true;
 	let canStart = true;
@@ -148,7 +180,9 @@
 				gapY: gapY,
 				width: Math.floor(canvas.width * pipeWidth),
 				gapHeight: gapHeight,
-				passed: false
+				passed: false,
+				highlight: 0, // frames to highlight after scoring
+				highlightPhase: 0 // 0: off, 1: fade-in, 2: fade-out
 			});
 		}
 
@@ -175,36 +209,74 @@
 		}
 		window.addEventListener('resize', resizeCanvas);
 
-	function drawUI() {
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
-			// Draw background grid for arcade accent
+	function drawParallaxBackground(score) {
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		// Calculate number of layers: 1 + every 2 points
+		let layers = Math.min(1 + Math.floor(score / 2), 8); // max 8 layers
+		// Brightness: 0 (dark) to 0.7 (not too bright)
+		let brightness = Math.min(0.15 + score * 0.03, 0.7);
+		// Base colors for layers (dark, muted)
+		const baseColors = [
+			[24, 24, 27],   // #18181b
+			[34, 34, 59],   // #22223b
+			[44, 44, 84],   // #2c2c54
+			[60, 60, 100],  // #3c3c64
+			[80, 80, 120],  // #505078
+			[100, 100, 140],// #64648c
+			[120, 120, 160],// #7878a0
+			[140, 140, 180] // #8c8cb4
+		];
+		for (let i = 0; i < layers; i++) {
+			// Parallax speed: slower for further layers
+			let offset = ((score * (i + 1) * 2) % canvas.width) * (0.2 + i * 0.1);
+			// Color: brighten as score increases
+			let [r, g, b] = baseColors[i];
+			r = Math.floor(r + brightness * 80);
+			g = Math.floor(g + brightness * 80);
+			b = Math.floor(b + brightness * 80);
 			ctx.save();
-			ctx.globalAlpha = 0.15;
-			ctx.strokeStyle = '#00ffe7';
-			for (let x = 0; x < canvas.width; x += 40) {
-				ctx.beginPath();
-				ctx.moveTo(x, 0);
-				ctx.lineTo(x, canvas.height);
-				ctx.stroke();
+			ctx.globalAlpha = 0.18 + i * 0.09;
+			ctx.fillStyle = `rgb(${r},${g},${b})`;
+			// Draw wavy hills for parallax effect
+			ctx.beginPath();
+			let hillHeight = canvas.height * (0.12 + i * 0.07);
+			ctx.moveTo(0, canvas.height);
+			for (let x = 0; x <= canvas.width; x += 8) {
+				let y = canvas.height - hillHeight - Math.sin((x + offset) * 0.008 + i) * (18 + i * 8);
+				ctx.lineTo(x, y);
 			}
-			for (let y = 0; y < canvas.height; y += 40) {
-				ctx.beginPath();
-				ctx.moveTo(0, y);
-				ctx.lineTo(canvas.width, y);
-				ctx.stroke();
-			}
+			ctx.lineTo(canvas.width, canvas.height);
+			ctx.closePath();
+			ctx.fill();
 			ctx.restore();
+		}
+	}
+
+	function drawUI() {
+		drawParallaxBackground(score);
+		// ...existing code...
 			// Draw pipes
 			for (let pipe of pipes) {
 				ctx.save();
+				let glow = 0;
+				if (pipe.highlight > 0) {
+					// Pulse: fast fade-in (first 4 frames), slow fade-out (next 120 frames)
+					if (pipe.highlight >= 121) {
+						glow = (124 - pipe.highlight) / 4; // fade-in: 0 to 1 over 4 frames
+					} else {
+						glow = pipe.highlight / 120; // fade-out: 1 to 0 over 120 frames
+					}
+				}
 				ctx.fillStyle = '#00ffe7';
 				ctx.shadowColor = '#00ffe7';
-				ctx.shadowBlur = 8;
+				ctx.shadowBlur = 8 + 18 * glow; // less strong effect
+				ctx.globalAlpha = 1;
 				// Top pipe
 				ctx.fillRect(pipe.x, 0, pipe.width, pipe.gapY);
 				// Bottom pipe
 				ctx.fillRect(pipe.x, pipe.gapY + pipe.gapHeight, pipe.width, canvas.height - (pipe.gapY + pipe.gapHeight));
 				ctx.restore();
+				if (pipe.highlight > 0) pipe.highlight--;
 			}
 			// Draw cube
 			ctx.save();
@@ -247,6 +319,19 @@
 		ctx.font = `bold ${Math.floor(canvas.height * 0.06)}px 'Press Start 2P', 'VT323', monospace`;
 		ctx.fillStyle = '#00ffe7';
 		ctx.fillText('FlappyCube', canvas.width/2, titleY, canvas.width * 0.9);
+		// Last round score (minimal, above high score)
+		if (lastScore !== null) {
+			// Calculate center between title and high score label
+			const lastScoreCenterY = (titleY + scoreLabelY) / 2;
+			ctx.font = `bold ${Math.floor(canvas.height * 0.028)}px 'Press Start 2P', 'VT323', monospace`;
+			ctx.fillStyle = '#fff';
+			ctx.globalAlpha = 0.7;
+			ctx.fillText('Last Score', canvas.width/2, lastScoreCenterY - canvas.height * 0.03, canvas.width * 0.9);
+			ctx.font = `bold ${Math.floor(canvas.height * 0.055)}px 'Press Start 2P', 'VT323', monospace`;
+			ctx.globalAlpha = 0.8;
+			ctx.fillText(lastScore, canvas.width/2, lastScoreCenterY + canvas.height * 0.01, canvas.width * 0.9);
+			ctx.globalAlpha = 1;
+		}
 		// High Score label centered
 		ctx.font = `bold ${Math.floor(canvas.height * 0.03)}px 'Press Start 2P', 'VT323', monospace`;
 		ctx.fillStyle = '#ff00c8';
@@ -255,6 +340,19 @@
 		ctx.font = `bold ${Math.floor(canvas.height * 0.11)}px 'Press Start 2P', 'VT323', monospace`;
 		ctx.fillStyle = '#fff';
 		ctx.fillText(highScore, canvas.width/2, scoreNumY, canvas.width * 0.9);
+		// Average score styled like last score, centered between high score and tap to start
+		if (lastScores.length > 0) {
+			const avg = Math.round(lastScores.reduce((a, b) => a + b, 0) / lastScores.length);
+			const avgCenterY = (scoreNumY + instrY) / 2;
+			ctx.font = `bold ${Math.floor(canvas.height * 0.028)}px 'Press Start 2P', 'VT323', monospace`;
+			ctx.fillStyle = '#fff';
+			ctx.globalAlpha = 0.7;
+			ctx.fillText('Average Score', canvas.width/2, avgCenterY - canvas.height * 0.03, canvas.width * 0.9);
+			ctx.font = `bold ${Math.floor(canvas.height * 0.055)}px 'Press Start 2P', 'VT323', monospace`;
+			ctx.globalAlpha = 0.8;
+			ctx.fillText(avg, canvas.width/2, avgCenterY + canvas.height * 0.01, canvas.width * 0.9);
+			ctx.globalAlpha = 1;
+		}
 		// Instructions at bottom center
 		ctx.font = `bold ${Math.floor(canvas.height * 0.035)}px 'Press Start 2P', 'VT323', monospace`;
 		ctx.fillStyle = '#fff';
@@ -278,6 +376,9 @@
 						highScore = score;
 						localStorage.setItem('flappycube_highscore', highScore);
 					}
+					lastScore = score;
+					lastScores.push(score);
+					if (lastScores.length > 5) lastScores.shift();
 					showStartScreen = true;
 					canStart = false;
 					setTimeout(() => { canStart = true; }, 1000);
@@ -306,11 +407,15 @@
 						(cube.y < pipe.gapY || cube.y + cube.size > pipe.gapY + pipe.gapHeight)
 					) {
 						gameActive = false;
+						playDeath();
 						// Game over, update high score and show start screen
 						if (score > highScore) {
 							highScore = score;
 							localStorage.setItem('flappycube_highscore', highScore);
 						}
+						lastScore = score;
+						lastScores.push(score);
+						if (lastScores.length > 5) lastScores.shift();
 						showStartScreen = true;
 						canStart = false;
 						setTimeout(() => { canStart = true; }, 1000);
@@ -318,7 +423,9 @@
 					// Score
 					if (!pipe.passed && pipe.x + pipe.width < cube.x) {
 						pipe.passed = true;
+						pipe.highlight = 124; // pulse for 124 frames (~2s)
 						score++;
+						playScore();
 					}
 				}
 			} else {
@@ -330,6 +437,7 @@
 
 		let spacePressed = false;
 		document.addEventListener('keydown', function(e) {
+			if (!canStart && showStartScreen) return; // Block input after death until allowed
 			if (e.code === 'Space' && !e.repeat && !spacePressed) {
 				spacePressed = true;
 				if (showStartScreen && canStart) {
@@ -337,12 +445,15 @@
 					gameActive = true;
 					cube.vy = cube.jump;
 					resetGame();
+					playJump();
 				} else if (!gameActive) {
 					gameActive = true;
 					cube.vy = cube.jump;
 					resetGame();
+					playJump();
 				} else {
 					cube.vy = cube.jump;
+					playJump();
 				}
 			}
 		});
@@ -355,17 +466,21 @@
 		// Touch support for mobile
 		canvas.addEventListener('touchstart', function(e) {
 			e.preventDefault();
+			if (!canStart && showStartScreen) return; // Block input after death until allowed
 			if (showStartScreen && canStart) {
 				showStartScreen = false;
 				gameActive = true;
 				cube.vy = cube.jump;
 				resetGame();
+				playJump();
 			} else if (!gameActive) {
 				gameActive = true;
 				cube.vy = cube.jump;
 				resetGame();
+				playJump();
 			} else {
 				cube.vy = cube.jump;
+				playJump();
 			}
 		});
 
