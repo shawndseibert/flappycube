@@ -244,8 +244,21 @@
 	<!-- New Game Button at Bottom -->
 	<div id="newGameBar" style="position:fixed;bottom:0;left:0;width:100vw;z-index:101;display:flex;justify-content:center;align-items:center;padding:0.5em 0;background:linear-gradient(to top,rgba(24,24,27,0.7) 80%,rgba(24,24,27,0.1) 100%);">
 		<button id="newGameBtn" style="font-size:0.9em;padding:0.3em 1em;border-radius:8px;border:none;background:#22223b;color:#ff00c8;font-family:'Press Start 2P','VT323',monospace;box-shadow:0 0 2px #ff00c8;opacity:0.7;cursor:pointer;">New Game</button>
+		<button id="chooseSkinBtn" style="font-size:0.9em;margin-left:1em;padding:0.3em 1em;border-radius:8px;border:none;background:#00ffe7;color:#22223b;font-family:'Press Start 2P','VT323',monospace;box-shadow:0 0 2px #00ffe7;opacity:0.7;cursor:pointer;">Choose Skin</button>
 	</div>
 	<!-- Themed Verification Modal -->
+	<!-- Skin Picker Modal -->
+	<div id="skinPickerModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(24,24,27,0.95);z-index:300;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
+		<div style="background:#22223b;border-radius:18px;padding:2em 1.5em;box-shadow:0 0 24px #00ffe7cc,0 0 8px #fff2;color:#fff;max-width:420px;max-height:80vh;overflow:auto;font-family:'Press Start 2P','VT323',monospace;">
+			<div style="font-size:1.3em;font-weight:bold;margin-bottom:1em;">Choose Your Skin</div>
+			<div style="display:flex;align-items:center;justify-content:center;gap:0.5em;">
+				<button id="carouselLeft" style="font-size:2em;background:none;border:none;color:#00ffe7;cursor:pointer;">&#9664;</button>
+				<div id="skinCarousel" style="display:flex;justify-content:center;align-items:center;gap:0.5em;perspective:1000px;min-height:160px;min-width:220px;max-width:220px;overflow:hidden;"></div>
+				<button id="carouselRight" style="font-size:2em;background:none;border:none;color:#00ffe7;cursor:pointer;">&#9654;</button>
+			</div>
+			<button onclick="closeSkinPicker()" style="margin-top:1.5em;font-size:1em;padding:0.5em 1.5em;border-radius:8px;border:none;background:#00ffe7;color:#22223b;font-family:'Press Start 2P','VT323',monospace;cursor:pointer;box-shadow:0 0 8px #00ffe7;">Close</button>
+		</div>
+	</div>
 	<div id="verifyModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(24,24,27,0.95);z-index:200;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
 		<div style="background:#22223b;border-radius:18px;padding:2em 1.5em;box-shadow:0 0 24px #ff00c8cc,0 0 8px #fff2;color:#fff;max-width:90vw;max-height:70vh;overflow:auto;font-family:'Press Start 2P','VT323',monospace;">
 			<span style="font-size:2.5em;display:block;margin-bottom:0.5em;">⚠️</span>
@@ -427,6 +440,89 @@ function checkAchievements() {
 			menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
 		}
 	});
+
+	// Skin Picker Logic
+
+	let carouselIndex = 0;
+	document.addEventListener('DOMContentLoaded', function() {
+		const chooseSkinBtn = document.getElementById('chooseSkinBtn');
+		const skinPickerModal = document.getElementById('skinPickerModal');
+		const leftBtn = document.getElementById('carouselLeft');
+		const rightBtn = document.getElementById('carouselRight');
+		chooseSkinBtn.onclick = () => {
+			carouselIndex = getCurrentBadgeIdx() || 0;
+			renderSkinCarousel();
+			skinPickerModal.style.display = 'flex';
+		};
+		leftBtn.onclick = () => {
+			moveCarousel(-1);
+		};
+		rightBtn.onclick = () => {
+			moveCarousel(1);
+		};
+	});
+
+	function closeSkinPicker() {
+		document.getElementById('skinPickerModal').style.display = 'none';
+	}
+
+	function moveCarousel(dir) {
+		const earned = getEarnedBadges();
+		let earnedBadges = milestoneBadges.map((b, i) => ({...b, idx: i})).filter((b, i) => earned[i]);
+		if (earnedBadges.length === 0) return;
+		carouselIndex = (carouselIndex + dir + earnedBadges.length) % earnedBadges.length;
+		renderSkinCarousel(true, dir);
+	}
+
+	function renderSkinCarousel(animated = false, dir = 0) {
+		const carousel = document.getElementById('skinCarousel');
+		carousel.innerHTML = '';
+		const earned = getEarnedBadges();
+		let earnedBadges = milestoneBadges.map((b, i) => ({...b, idx: i})).filter((b, i) => earned[i]);
+		const N = earnedBadges.length;
+		if (N === 0) {
+			carousel.innerHTML = '<div style="font-size:1.2em;color:#ff00c8;">No skins earned yet!</div>';
+			return;
+		}
+		// Show 5 badges: center, left/right, far left/right
+		for (let offset = -2; offset <= 2; offset++) {
+			let i = (carouselIndex + offset + N) % N;
+			const badge = earnedBadges[i];
+			const btn = document.createElement('button');
+			btn.className = 'skin-btn';
+			btn.setAttribute('aria-label', badge.title);
+			btn.innerText = badge.emoji;
+			btn.style.background = 'none';
+			btn.style.border = offset === 0 ? '2px solid #00ffe7' : 'none';
+			btn.style.borderRadius = '50%';
+			btn.style.cursor = 'pointer';
+			btn.style.fontSize = offset === 0 ? '3em' : offset === -1 || offset === 1 ? '2em' : '1.2em';
+			btn.style.opacity = offset === 0 ? '1' : offset === -1 || offset === 1 ? '0.7' : '0.4';
+			btn.style.transform = `scale(${offset === 0 ? 1.2 : offset === -1 || offset === 1 ? 1 : 0.8}) translateY(${offset * 12}px) rotateY(${offset * 30}deg)`;
+			btn.style.boxShadow = offset === 0 ? '0 0 16px #00ffe7' : '0 0 8px #22223b';
+			btn.onclick = () => selectSkin(badge.idx);
+			if (animated) {
+				btn.style.transition = 'transform 0.4s cubic-bezier(.68,-0.55,.27,1.55), box-shadow 0.2s';
+			} else {
+				btn.style.transition = 'none';
+			}
+			carousel.appendChild(btn);
+		}
+	}
+
+	function selectSkin(idx) {
+		localStorage.setItem('flappycube_lastbadge', idx);
+		// Find the index in the earnedBadges array
+		const earned = getEarnedBadges();
+		let earnedBadges = milestoneBadges.map((b, i) => ({...b, idx: i})).filter((b, i) => earned[i]);
+		const earnedIdx = earnedBadges.findIndex(b => b.idx === idx);
+		if (earnedIdx !== -1) carouselIndex = earnedIdx;
+		renderSkinCarousel(true);
+		// Update player skin immediately
+		if (typeof updatePlayerSkin === 'function') updatePlayerSkin(idx);
+		else if (typeof drawUI === 'function') drawUI();
+		closeSkinPicker();
+	}
 		// Soft sine wave sound effects using Tone.js
 const jumpSynth = new Tone.Synth({
     oscillator: { type: 'sine' },
