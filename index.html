@@ -232,6 +232,10 @@
 			<button onclick="devAddNextBadge()">Add Next Badge</button>
 			<button onclick="devClearBadges()">Clear All Badges</button>
 			<button onclick="devNewGame()" style="background:#ff00c8;color:#fff;">New Game</button>
+			<div style="margin-top:1em;">
+				<input id="devScoreInput" type="number" min="0" max="9999" placeholder="Set Starting Score" style="width:120px;font-size:1em;padding:0.3em 0.7em;border-radius:6px;border:1px solid #00ffe7;background:#22223b;color:#fff;margin-right:0.5em;">
+				<button onclick="devSetScore()" style="background:#00ffe7;color:#22223b;">Set Score</button>
+			</div>
 			<button onclick="document.getElementById('devMenu').style.display='none'">Close</button>
 		</div>
 	<div class="game-container" style="position:relative; z-index:2;">
@@ -408,6 +412,12 @@ function checkAchievements() {
 	  localStorage.setItem('flappycube_badges', JSON.stringify(Array(milestoneBadges.length).fill(false)));
 	  renderBadges();
 	}
+	function devSetScore() {
+	var val = parseInt(document.getElementById('devScoreInput').value);
+	if (!isNaN(val) && val >= 0) {
+		window._devStartScore = val;
+	}
+	}
 
 	// Toggle dev menu with ~ key
 	// Toggle dev menu with ` (backtick) key
@@ -438,12 +448,151 @@ function playJump() {
     const semitoneOffset = (Math.random() - 0.5) * 4; // -2 to +2 semitones
     const note = Tone.Frequency(base).transpose(semitoneOffset);
     jumpSynth.triggerAttackRelease(note, 0.08);
+    // Play last end game scale in reverse when game starts
+    if (window._playReverseScaleOnStart) {
+        let scale = window._lastEndScale;
+        if (!scale) {
+            scale = window._scaryScales ? window._scaryScales[Math.floor(Math.random() * window._scaryScales.length)] : ['C5', 'Ab4', 'F#4', 'E4', 'C#4', 'B3', 'F4', 'C4'];
+        }
+        const synth = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.005, decay: 0.09, sustain: 0.03, release: 0.09 }
+        }).toDestination();
+        let delay = 0;
+        [...scale].reverse().forEach(note => {
+            synth.triggerAttackRelease(note, 0.16, Tone.now() + delay, 0.7);
+            delay += 0.10;
+        });
+        setTimeout(() => synth.dispose(), 1200);
+        window._playReverseScaleOnStart = false;
+    }
 }
 function playScore() {
     scoreSynth.triggerAttackRelease('E5', 0.12);
 }
 function playDeath() {
     deathSynth.triggerAttackRelease('0.08');
+    // Play a random scary descending scale and store it
+    window._scaryScales = [
+        ['C5', 'Ab4', 'F#4', 'E4', 'C#4', 'B3', 'F4', 'C4'],
+        ['D5', 'Bb4', 'G4', 'F#4', 'E4', 'C4', 'A3', 'D4'],
+        ['E5', 'C5', 'A4', 'F#4', 'Eb4', 'B3', 'G4', 'E4'],
+        ['F#5', 'E5', 'C5', 'A4', 'F4', 'D4', 'Bb3', 'F#4'],
+        ['G5', 'Eb5', 'C#5', 'B4', 'G#4', 'F4', 'D4', 'G4'],
+        ['A4', 'F#4', 'E4', 'C#4', 'B3', 'G3', 'F4', 'A3'],
+        ['Bb4', 'G4', 'F#4', 'Eb4', 'C4', 'A3', 'F4', 'Bb3'],
+        ['C#5', 'B4', 'G#4', 'F#4', 'E4', 'C4', 'A3', 'C#4']
+    ];
+    const scaryScale = window._scaryScales[Math.floor(Math.random() * window._scaryScales.length)];
+    window._lastEndScale = scaryScale;
+    const synth = new Tone.Synth({
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.005, decay: 0.09, sustain: 0.03, release: 0.09 }
+    }).toDestination();
+    let delay = 0;
+    scaryScale.forEach(note => {
+        synth.triggerAttackRelease(note, 0.16, Tone.now() + delay, 0.7);
+        delay += 0.10;
+    });
+    setTimeout(() => synth.dispose(), 1200);
+}
+
+// Particle trail system
+let cubeParticles = [];
+function getCurrentBadgeIdx() {
+    let idx = localStorage.getItem('flappycube_lastbadge');
+    if (idx !== null && getEarnedBadges()[idx]) return Number(idx);
+    return null;
+}
+function getTrailStyleForBadge(idx) {
+    // Example: pick style based on badge emoji index
+    if (idx === null) return { color: 'hsl(200,100%,60%)', shape: 'circle', glow: false };
+    // You can customize styles for specific badges here
+    const badge = milestoneBadges[idx];
+    // Use emoji code to pick color, shape, etc.
+    let color, shape, glow;
+    if (idx % 10 === 0) {
+        color = 'gold'; shape = 'star'; glow = true;
+    } else if (idx % 5 === 0) {
+        color = 'hsl(' + (idx * 36 % 360) + ',100%,60%)'; shape = 'diamond'; glow = false;
+    } else {
+        color = 'hsl(' + (idx * 18 % 360) + ',100%,60%)'; shape = 'circle'; glow = false;
+    }
+    return { color, shape, glow };
+}
+function spawnCubeParticle() {
+    let badgeIdx = getCurrentBadgeIdx();
+    // Only show trail if player has earned at least one badge
+    if (badgeIdx === null || badgeIdx < 0) return;
+    let t = Math.min(score / 200, 1);
+    let style = getTrailStyleForBadge(badgeIdx);
+    let size = 6 + t * 10;
+    let badgeTrailFactor = (1 + badgeIdx * 0.12);
+    let life = Math.floor((48 + t * 48) * badgeTrailFactor);
+    let wind = -pipeSpeed;
+    let vy = 0;
+    let offsetX = -cube.size * 0.6;
+    cubeParticles.push({
+        x: cube.x + cube.size/2 + offsetX,
+        y: cube.y + cube.size/2,
+        vx: wind,
+        vy: vy,
+        size,
+        color: style.color,
+        shape: style.shape,
+        glow: style.glow,
+        alpha: 1,
+        life
+    });
+}
+function updateCubeParticles() {
+    for (let p of cubeParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        p.alpha = Math.max(0, p.life/48);
+    }
+    cubeParticles = cubeParticles.filter(p => p.life > 0);
+}
+function drawCubeParticles(ctx) {
+    for (let p of cubeParticles) {
+        ctx.save();
+        ctx.globalAlpha = p.alpha * 0.7;
+        if (p.glow) {
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 16;
+        }
+        ctx.fillStyle = p.color;
+        if (p.shape === 'star') {
+            // Draw a simple star
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                let angle = (Math.PI * 2 / 5) * i - Math.PI/2;
+                let x = p.x + Math.cos(angle) * p.size;
+                let y = p.y + Math.sin(angle) * p.size;
+                ctx.lineTo(x, y);
+                angle += Math.PI/5;
+                x = p.x + Math.cos(angle) * (p.size/2);
+                y = p.y + Math.sin(angle) * (p.size/2);
+                ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+        } else if (p.shape === 'diamond') {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y - p.size);
+            ctx.lineTo(p.x + p.size, p.y);
+            ctx.lineTo(p.x, p.y + p.size);
+            ctx.lineTo(p.x - p.size, p.y);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
 }
 
 		// Responsive canvas setup
@@ -473,7 +622,7 @@ let lastScore = null;
 
 		function resetGame() {
 			pipes = [];
-			score = 0;
+			score = window._devStartScore !== undefined ? window._devStartScore : 0;
 			// Do not reset flappycube_lastbadge here, so player stays as last badge
 		}
 
@@ -484,10 +633,8 @@ let lastScore = null;
 				window.pipePatterns = [0.2, 0.4, 0.6, 0.3, 0.7, 0.5];
 				window.pipePatternIndex = 0;
 			}
-			// Progressive difficulty: decrease gap size every 10 points, but not below 0.14
-			let difficulty = Math.floor(score / 10);
-			let minGap = 0.14;
-			let gapFrac = Math.max(pipeGap - difficulty * 0.015, minGap);
+			// Fixed gap size for all pipes
+			let gapFrac = pipeGap; // pipeGap is a constant fraction
 			let gapHeight = canvas.height * gapFrac;
 			let minY = canvas.height * 0.12;
 			let maxY = canvas.height - gapHeight - minY;
@@ -586,8 +733,7 @@ let lastScore = null;
 	function drawUI() {
 		checkAchievements();
 		drawParallaxBackground(score);
-		// ...existing code...
-			// Draw pipes
+		// Draw pipes
 			for (let pipe of pipes) {
 				ctx.save();
 				let glow = 0;
@@ -598,8 +744,33 @@ let lastScore = null;
 						glow = pipe.highlight / 120;
 					}
 				}
-				ctx.fillStyle = '#00ffe7';
-				ctx.shadowColor = '#00ffe7';
+				// Pipe color gradiates from easy to hard
+				// Easy: green (#00ff7a), Hard: red (#ff0040), middle: yellow/orange
+				function getPipeColor(score) {
+					// Rainbow: blue (240) -> cyan (180) -> green (120) -> yellow (60) -> orange (30) -> red (0) -> magenta (300) -> purple (270)
+					// Score 0 = blue, 200 = purple, >200 = random RGB
+					if (score >= 200) {
+						// Animated RGB for hard mode (slow hue cycle)
+						const now = Date.now();
+						// Cycle hue every 3 seconds
+						const hue = ((now / 3000) % 1) * 360;
+						return `hsl(${hue},100%,55%)`;
+					}
+					// Map score 0-200 to hue 240 (blue) to 270 (purple)
+					let t = Math.max(0, Math.min(score / 200, 1));
+					// Interpolate through rainbow hues
+					// We'll use: [240, 180, 120, 60, 30, 0, 300, 270]
+					const rainbowHues = [240, 180, 120, 60, 30, 0, 300, 270];
+					const n = rainbowHues.length - 1;
+					let idx = Math.floor(t * n);
+					let frac = (t * n) - idx;
+					let hue = rainbowHues[idx] + frac * (rainbowHues[idx + 1] - rainbowHues[idx]);
+					let sat = 100;
+					let light = 55;
+					return `hsl(${hue},${sat}%,${light}%)`;
+				}
+				ctx.fillStyle = getPipeColor(score);
+				ctx.shadowColor = getPipeColor(score);
 				ctx.shadowBlur = 8 + 18 * glow;
 				ctx.globalAlpha = 1;
 				ctx.fillRect(pipe.x, 0, pipe.width, pipe.gapY);
@@ -607,6 +778,8 @@ let lastScore = null;
 				ctx.restore();
 				if (pipe.highlight > 0) pipe.highlight--;
 			}
+			// Draw particle trail before cube
+			drawCubeParticles(ctx);
 			// Draw cube
 			ctx.save();
 			let lastBadgeIdx = localStorage.getItem('flappycube_lastbadge');
@@ -719,6 +892,9 @@ let lastScore = null;
 				let frameScale = dt * 60; // 1 for 60fps, <1 for higher fps, >1 for lower
 				cube.vy += cube.gravity * frameScale;
 				cube.y += cube.vy * frameScale;
+				// Particle trail logic
+				spawnCubeParticle();
+				updateCubeParticles();
 				// Floor collision
 				if (cube.y + cube.size > canvas.height) {
 					cube.y = canvas.height - cube.size;
@@ -800,11 +976,13 @@ let lastScore = null;
 					gameActive = true;
 					cube.vy = cube.jump;
 					resetGame();
+					window._playReverseScaleOnStart = true;
 					playJump();
 				} else if (!gameActive) {
 					gameActive = true;
 					cube.vy = cube.jump;
 					resetGame();
+					window._playReverseScaleOnStart = true;
 					playJump();
 				} else {
 					cube.vy = cube.jump;
@@ -827,6 +1005,7 @@ let lastScore = null;
 				gameActive = true;
 				cube.vy = cube.jump;
 				resetGame();
+				window._playReverseScaleOnStart = true;
 				playJump();
 			} else if (!gameActive) {
 				gameActive = true;
@@ -847,6 +1026,7 @@ let lastScore = null;
 				gameActive = true;
 				cube.vy = cube.jump;
 				resetGame();
+				window._playReverseScaleOnStart = true;
 				playJump();
 			} else if (!gameActive) {
 				gameActive = true;
