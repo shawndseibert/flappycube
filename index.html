@@ -239,44 +239,29 @@
 	</div>
 	<!-- Footer removed -->
 	<script>
-// Milestone Badges Data
-const milestoneBadges = [
-	{emoji:'🎉',title:'First Jump!',desc:'You started your first game.'},
-	{emoji:'💯',title:'Score 100',desc:'Reach a score of 100.'},
-	{emoji:'🦄',title:'Lucky Cube',desc:'Score exactly 7.'},
-	{emoji:'🚀',title:'Speedster',desc:'Score 20 in under 30 seconds.'},
-	{emoji:'👑',title:'High Roller',desc:'Beat your high score.'},
-	{emoji:'🌈',title:'Color Burst',desc:'Unlock a secret color.'},
-	{emoji:'🧊',title:'Ice Cube',desc:'Score 50 without hitting the top.'},
-	{emoji:'🔥',title:'On Fire!',desc:'Score 10 in a row without dying.'},
-	{emoji:'🕹️',title:'Retro Gamer',desc:'Play 10 games.'},
-	{emoji:'🎵',title:'Sound Master',desc:'Trigger all sound effects.'},
-	{emoji:'🧠',title:'Brainy',desc:'Score 42.'},
-	{emoji:'🌟',title:'Star Player',desc:'Score 5 in your first game.'},
-	{emoji:'🥇',title:'Gold Medal',desc:'Score 200.'},
-	{emoji:'🦋',title:'Graceful',desc:'Score 15 without touching pipes.'},
-	{emoji:'🧙‍♂️',title:'Wizard',desc:'Score 77.'},
-	{emoji:'🦾',title:'Robot Reflex',desc:'Score 30 with no mistakes.'},
-	{emoji:'🪐',title:'Space Cube',desc:'Score 99.'},
-	{emoji:'🎲',title:'Randomizer',desc:'Score a random number.'},
-	{emoji:'🧸',title:'Soft Landing',desc:'Lose by hitting the ground.'},
-	{emoji:'👻',title:'Ghost Run',desc:'Score 13.'},
-	// Silly Badges
-	{emoji:'🥒',title:'Pickle Power',desc:'Score 3 in a game.'},
-	{emoji:'🦆',title:'Duck Dodger',desc:'Jump 5 times in 5 seconds.'},
-	{emoji:'🧻',title:'Toilet Papered',desc:'Lose with a score of 1.'},
-	{emoji:'🦑',title:'Squidward',desc:'Hit the top of the screen.'},
-	{emoji:'🪱',title:'Wiggly Win',desc:'Move left and right 10 times in one game.'},
-	{emoji:'🦖',title:'Dino Disaster',desc:'Lose with a score of 1.'},
-	{emoji:'🧃',title:'Juice Boost',desc:'Score increases 2 times in 1 second.'},
-	{emoji:'🦔',title:'Hedgehog Hug',desc:'Survive for 60 seconds.'},
-	//{emoji:'🦕',title:'Long Neck',desc:'Score exactly 8.'},
-	//{emoji:'🧦',title:'Sock Collector',desc:'Play the game at midnight.'},
-	// High Score Badges
-	,{emoji:'🏆',title:'Super Score',desc:'Score 500 points.'}
-	,{emoji:'💎',title:'Legendary Score',desc:'Score 1000 points.'}
-	,{emoji:'🦸‍♂️',title:'Cube God',desc:'Score 2000 points.'}
+// 100 unique badges for every 5 gates (score) up to 500
+const badgeEmojisUnique = [
+	'⭐','🌟','🥉','🥈','🥇','🏅','🏆','💎','👑','🚀',
+	'🎉','🎊','🎈','🎂','🍰','🍭','🍬','🍫','🍿','🧁',
+	'🍕','🍔','🍟','🌭','🥪','🥗','🍣','🍤','🍦','🍩',
+	'🍪','🥨','🥯','🧀','🍖','🍗','🥓','🥚','🍳','🥞',
+	'🧇','🥥','🥝','🍇','🍉','🍊','🍋','🍌','🍍','🥭',
+	'🍎','🍏','🍐','🍑','🍒','🍓','🫐','🥕','🌽','🥒',
+	'🥬','🥦','🧄','🧅','🍄','🥜','🌰','🍞','🥐','🥖',
+	'🥨','🥯','🥞','🧇','🧈','🧊','🥤','🧃','🧉','🍵',
+	'☕','🧋','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🍾',
+	'🧊','🧦','🦄','🦆','🦑','🦖','🦕','🦚','🦞','🦷',
+	'🧠','💩','👽','😜','🤪','😎','🤩','🥳','😺','😻'
 ];
+
+const milestoneBadges = Array.from({length: 100}, (_, i) => {
+	const gates = (i + 1) * 5;
+	return {
+		emoji: badgeEmojisUnique[i],
+		title: `Gate ${gates}`,
+		desc: `Pass ${gates} gates.`
+	};
+});
 
 // Track earned badges in localStorage
 function getEarnedBadges() {
@@ -288,6 +273,7 @@ function setEarnedBadge(idx) {
 	let arr = getEarnedBadges();
 	arr[idx] = true;
 	localStorage.setItem('flappycube_badges', JSON.stringify(arr));
+	localStorage.setItem('flappycube_lastbadge', idx); // Track most recent badge
 }
 
 // Render only earned badges above the map
@@ -312,14 +298,8 @@ function renderBadges() {
 			btn.onclick = () => showBadgeModal(i);
 			btn.onpointerdown = () => btn.style.transform='scale(1.2)';
 			btn.onpointerup = btn.onpointerleave = () => btn.style.transform='scale(1)';
-		} else {
-			btn.style.opacity = '0.35';
-			btn.onclick = null;
-			btn.onpointerdown = null;
-			btn.onpointerup = null;
-			btn.onpointerleave = null;
+			bar.appendChild(btn);
 		}
-		bar.appendChild(btn);
 	});
 }
 
@@ -337,53 +317,22 @@ window.addEventListener('DOMContentLoaded', renderBadges);
 
 // Achievement logic (demo: add more triggers as needed)
 function checkAchievements() {
-	let earned = getEarnedBadges();
-	// First Jump
-	if (!earned[0] && gameActive && score === 0 && pipes.length === 0) {
-		setEarnedBadge(0);
-		renderBadges();
-	}
-	// Score milestones
-	if (!earned[1] && score >= 100) { setEarnedBadge(1); renderBadges(); }
-	if (!earned[2] && score === 7) { setEarnedBadge(2); renderBadges(); }
-	if (!earned[3] && score >= 20 && (window._lastFrame && performance.now()-window._lastFrame<30000)) { setEarnedBadge(3); renderBadges(); }
-	if (!earned[4] && score > highScore) { setEarnedBadge(4); renderBadges(); }
-	if (!earned[5] && window.secretColorUnlocked) { setEarnedBadge(5); renderBadges(); }
-	if (!earned[6] && score >= 50 && !window.hitTop) { setEarnedBadge(6); renderBadges(); }
-	if (!earned[7] && window.streak10) { setEarnedBadge(7); renderBadges(); }
-	if (!earned[8] && window.gamesPlayed >= 10) { setEarnedBadge(8); renderBadges(); }
-	if (!earned[9] && window.allSoundsPlayed) { setEarnedBadge(9); renderBadges(); }
-	if (!earned[10] && score === 42) { setEarnedBadge(10); renderBadges(); }
-	if (!earned[11] && lastScore === 5 && window.gamesPlayed === 1) { setEarnedBadge(11); renderBadges(); }
-	if (!earned[12] && score >= 200) { setEarnedBadge(12); renderBadges(); }
-	if (!earned[13] && score >= 15 && !window.hitPipe) { setEarnedBadge(13); renderBadges(); }
-	if (!earned[14] && score === 77) { setEarnedBadge(14); renderBadges(); }
-	if (!earned[15] && score >= 30 && !window.mistakes) { setEarnedBadge(15); renderBadges(); }
-	if (!earned[16] && score === 99) { setEarnedBadge(16); renderBadges(); }
-	if (!earned[17] && window.randomScore) { setEarnedBadge(17); renderBadges(); }
-	if (!earned[18] && !gameActive && window.hitGround) { setEarnedBadge(18); renderBadges(); }
-	if (!earned[19] && score === 13) { setEarnedBadge(19); renderBadges(); }
-	// High Score Badges
-	if (!earned[20] && score >= 500) { setEarnedBadge(20); renderBadges(); }
-	if (!earned[21] && score >= 1000) { setEarnedBadge(21); renderBadges(); }
-	if (!earned[22] && score >= 2000) { setEarnedBadge(22); renderBadges(); }
-	// Silly Badge Triggers
-	if (!earned[23] && score === 3) { setEarnedBadge(23); renderBadges(); }
-	if (!earned[24] && window.jumpsLast5s >= 5) { setEarnedBadge(24); renderBadges(); }
-	if (!earned[25] && !gameActive && score === 1) { setEarnedBadge(25); renderBadges(); }
-	if (!earned[26] && window.hitTop) { setEarnedBadge(26); renderBadges(); }
-	if (!earned[27] && window.movesLR >= 10) { setEarnedBadge(27); renderBadges(); }
-	// Use lastScore for game over achievements to ensure accuracy
-	if (!earned[28] && !gameActive && lastScore === 0) { setEarnedBadge(28); renderBadges(); }
-	if (!earned[25] && !gameActive && lastScore === 1) { setEarnedBadge(25); renderBadges(); }
-	if (!earned[29] && window.scoreBoost2x) { setEarnedBadge(29); renderBadges(); }
-	if (!earned[30] && window.survive60s) { setEarnedBadge(30); renderBadges(); }
-	if (!earned[31] && score === 8) { setEarnedBadge(31); renderBadges(); }
-	if (!earned[32] && window.playedAtMidnight) { setEarnedBadge(32); renderBadges(); }
+    // Gate achievement badges (only new system)
+    let earned = getEarnedBadges();
+    for (let i = 0; i < milestoneBadges.length; i++) {
+        const gateScore = (i + 1) * 5;
+        if (!earned[i] && score >= gateScore) {
+            setEarnedBadge(i);
+            renderBadges();
+            localStorage.setItem('flappycube_lastbadge', i);
+        }
+    }
 }
 	// Dev Menu Functions
 	function devNewGame() {
-		localStorage.clear();
+		localStorage.removeItem('flappycube_badges');
+		localStorage.removeItem('flappycube_highscore');
+		localStorage.removeItem('flappycube_lastbadge');
 		location.reload();
 	}
 	function devAddAllBadges() {
@@ -471,13 +420,27 @@ let lastScore = null;
 		function resetGame() {
 			pipes = [];
 			score = 0;
+			// Do not reset flappycube_lastbadge here, so player stays as last badge
 		}
 
 		function spawnPipe() {
-			let gapHeight = canvas.height * pipeGap;
+			// Pattern system for pipe gaps
+			if (!window.pipePatterns) {
+				// Define a set of gap positions as fractions of canvas height (e.g. 0.2, 0.4, 0.6, 0.8)
+				window.pipePatterns = [0.2, 0.4, 0.6, 0.3, 0.7, 0.5];
+				window.pipePatternIndex = 0;
+			}
+			// Progressive difficulty: decrease gap size every 10 points, but not below 0.14
+			let difficulty = Math.floor(score / 10);
+			let minGap = 0.14;
+			let gapFrac = Math.max(pipeGap - difficulty * 0.015, minGap);
+			let gapHeight = canvas.height * gapFrac;
 			let minY = canvas.height * 0.12;
 			let maxY = canvas.height - gapHeight - minY;
-			let gapY = Math.floor(Math.random() * (maxY - minY) + minY);
+			// Use pattern for gapY
+			let patternFrac = window.pipePatterns[window.pipePatternIndex % window.pipePatterns.length];
+			window.pipePatternIndex++;
+			let gapY = Math.floor(minY + patternFrac * (maxY - minY));
 			// Enforce minimum spacing between pipes
 			let minPipeSpacing = canvas.width * 0.45;
 			let lastPipe = pipes.length > 0 ? pipes[pipes.length - 1] : null;
@@ -525,10 +488,10 @@ let lastScore = null;
 
 	function drawParallaxBackground(score) {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		// Calculate number of layers: 1 + every 2 points
-		let layers = Math.min(1 + Math.floor(score / 2), 8); // max 8 layers
-		// Brightness: 0 (dark) to 0.7 (not too bright)
-		let brightness = Math.min(0.15 + score * 0.03, 0.7);
+	// Reduce layers and brightness for less distraction
+	let layers = Math.min(1 + Math.floor(score / 4), 3); // max 3 layers
+	// Lower brightness
+	let brightness = Math.min(0.10 + score * 0.01, 0.25);
 		// Base colors for layers (dark, muted)
 		const baseColors = [
 			[24, 24, 27],   // #18181b
@@ -542,21 +505,21 @@ let lastScore = null;
 		];
 		for (let i = 0; i < layers; i++) {
 			// Parallax speed: slower for further layers
-			let offset = ((score * (i + 1) * 2) % canvas.width) * (0.2 + i * 0.1);
+			let offset = ((score * (i + 1) * 2) % canvas.width) * (0.15 + i * 0.07);
 			// Color: brighten as score increases
 			let [r, g, b] = baseColors[i];
-			r = Math.floor(r + brightness * 80);
-			g = Math.floor(g + brightness * 80);
-			b = Math.floor(b + brightness * 80);
+			r = Math.floor(r + brightness * 40);
+			g = Math.floor(g + brightness * 40);
+			b = Math.floor(b + brightness * 40);
 			ctx.save();
-			ctx.globalAlpha = 0.18 + i * 0.09;
+			ctx.globalAlpha = 0.10 + i * 0.07; // more transparent
 			ctx.fillStyle = `rgb(${r},${g},${b})`;
-			// Draw wavy hills for parallax effect
+			// Draw less wavy hills for parallax effect
 			ctx.beginPath();
-			let hillHeight = canvas.height * (0.12 + i * 0.07);
+			let hillHeight = canvas.height * (0.10 + i * 0.05);
 			ctx.moveTo(0, canvas.height);
 			for (let x = 0; x <= canvas.width; x += 8) {
-				let y = canvas.height - hillHeight - Math.sin((x + offset) * 0.008 + i) * (18 + i * 8);
+				let y = canvas.height - hillHeight - Math.sin((x + offset) * 0.006 + i) * (8 + i * 4);
 				ctx.lineTo(x, y);
 			}
 			ctx.lineTo(canvas.width, canvas.height);
@@ -575,30 +538,45 @@ let lastScore = null;
 				ctx.save();
 				let glow = 0;
 				if (pipe.highlight > 0) {
-					// Pulse: fast fade-in (first 4 frames), slow fade-out (next 120 frames)
 					if (pipe.highlight >= 121) {
-						glow = (124 - pipe.highlight) / 4; // fade-in: 0 to 1 over 4 frames
+						glow = (124 - pipe.highlight) / 4;
 					} else {
-						glow = pipe.highlight / 120; // fade-out: 1 to 0 over 120 frames
+						glow = pipe.highlight / 120;
 					}
 				}
 				ctx.fillStyle = '#00ffe7';
 				ctx.shadowColor = '#00ffe7';
-				ctx.shadowBlur = 8 + 18 * glow; // less strong effect
+				ctx.shadowBlur = 8 + 18 * glow;
 				ctx.globalAlpha = 1;
-				// Top pipe
 				ctx.fillRect(pipe.x, 0, pipe.width, pipe.gapY);
-				// Bottom pipe
 				ctx.fillRect(pipe.x, pipe.gapY + pipe.gapHeight, pipe.width, canvas.height - (pipe.gapY + pipe.gapHeight));
 				ctx.restore();
 				if (pipe.highlight > 0) pipe.highlight--;
 			}
 			// Draw cube
 			ctx.save();
-			ctx.fillStyle = '#ff00c8';
-			ctx.shadowColor = '#ff00c8';
-			ctx.shadowBlur = 16;
-			ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+			let lastBadgeIdx = localStorage.getItem('flappycube_lastbadge');
+			if (lastBadgeIdx !== null && getEarnedBadges()[lastBadgeIdx]) {
+				try {
+					ctx.font = `${Math.floor(cube.size * 0.95)}px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', serif`;
+					ctx.textAlign = 'center';
+					ctx.textBaseline = 'middle';
+					ctx.shadowColor = '#ff00c8';
+					ctx.shadowBlur = 16;
+					ctx.globalAlpha = 1;
+					ctx.fillText(milestoneBadges[lastBadgeIdx].emoji, cube.x + cube.size/2, cube.y + cube.size/2);
+				} catch (e) {
+					ctx.fillStyle = '#ff00c8';
+					ctx.shadowColor = '#ff00c8';
+					ctx.shadowBlur = 16;
+					ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+				}
+			} else {
+				ctx.fillStyle = '#ff00c8';
+				ctx.shadowColor = '#ff00c8';
+				ctx.shadowBlur = 16;
+				ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+			}
 			ctx.restore();
 			// Draw score
 			if (gameActive) {
