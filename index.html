@@ -237,8 +237,61 @@
 	<div class="game-container" style="position:relative; z-index:2;">
 		<canvas id="gameCanvas"></canvas>
 	</div>
-	<!-- Footer removed -->
+	<!-- New Game Button at Bottom -->
+	<div id="newGameBar" style="position:fixed;bottom:0;left:0;width:100vw;z-index:101;display:flex;justify-content:center;align-items:center;padding:0.5em 0;background:linear-gradient(to top,rgba(24,24,27,0.7) 80%,rgba(24,24,27,0.1) 100%);">
+		<button id="newGameBtn" style="font-size:0.9em;padding:0.3em 1em;border-radius:8px;border:none;background:#22223b;color:#ff00c8;font-family:'Press Start 2P','VT323',monospace;box-shadow:0 0 2px #ff00c8;opacity:0.7;cursor:pointer;">New Game</button>
+	</div>
+	<!-- Themed Verification Modal -->
+	<div id="verifyModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(24,24,27,0.95);z-index:200;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
+		<div style="background:#22223b;border-radius:18px;padding:2em 1.5em;box-shadow:0 0 24px #ff00c8cc,0 0 8px #fff2;color:#fff;max-width:90vw;max-height:70vh;overflow:auto;font-family:'Press Start 2P','VT323',monospace;">
+			<span style="font-size:2.5em;display:block;margin-bottom:0.5em;">⚠️</span>
+			<div style="font-size:1.3em;font-weight:bold;margin-bottom:0.5em;">Start a New Game?</div>
+			<div style="font-size:1em;margin-bottom:1em;">This will erase <b>all badges, scores, and progress</b>.<br>Are you sure you want to continue?</div>
+			<button id="verifyYesBtn" style="margin:0.5em 1em 0 0;font-size:1em;padding:0.5em 1.5em;border-radius:8px;border:none;background:#ff00c8;color:#fff;font-family:'Press Start 2P','VT323',monospace;cursor:pointer;box-shadow:0 0 8px #ff00c8;">Yes, continue</button>
+			<button id="verifyNoBtn" style="margin:0.5em 0 0 1em;font-size:1em;padding:0.5em 1.5em;border-radius:8px;border:none;background:#00ffe7;color:#22223b;font-family:'Press Start 2P','VT323',monospace;cursor:pointer;box-shadow:0 0 8px #00ffe7;">Cancel</button>
+		</div>
+	</div>
+	<!-- Comedic Verification Modal -->
+	<div id="comedyModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(24,24,27,0.97);z-index:201;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
+		<div style="background:#22223b;border-radius:18px;padding:2em 1.5em;box-shadow:0 0 24px #00ffe7cc,0 0 8px #fff2;color:#fff;max-width:90vw;max-height:70vh;overflow:auto;font-family:'Press Start 2P','VT323',monospace;">
+			<span style="font-size:2.5em;display:block;margin-bottom:0.5em;">🤔</span>
+			<div style="font-size:1.3em;font-weight:bold;margin-bottom:0.5em;">Wait, are you REALLY sure?</div>
+			<div style="font-size:1em;margin-bottom:1em;">This is your <b>last chance</b>! All your badges will be gone forever.<br>Do you want to proceed?</div>
+			<button id="comedyYesBtn" style="margin:0.5em 1em 0 0;font-size:1em;padding:0.5em 1.5em;border-radius:8px;border:none;background:#00ffe7;color:#22223b;font-family:'Press Start 2P','VT323',monospace;cursor:pointer;box-shadow:0 0 8px #00ffe7;">Yes, I'm sure!</button>
+			<button id="comedyNoBtn" style="margin:0.5em 0 0 1em;font-size:1em;padding:0.5em 1.5em;border-radius:8px;border:none;background:#ff00c8;color:#fff;font-family:'Press Start 2P','VT323',monospace;cursor:pointer;box-shadow:0 0 8px #ff00c8;">No, take me back!</button>
+		</div>
+	</div>
 	<script>
+// New Game Button and Verification Logic
+document.addEventListener('DOMContentLoaded', function() {
+	const newGameBtn = document.getElementById('newGameBtn');
+	const verifyModal = document.getElementById('verifyModal');
+	const verifyYesBtn = document.getElementById('verifyYesBtn');
+	const verifyNoBtn = document.getElementById('verifyNoBtn');
+	const comedyModal = document.getElementById('comedyModal');
+	const comedyYesBtn = document.getElementById('comedyYesBtn');
+	const comedyNoBtn = document.getElementById('comedyNoBtn');
+	newGameBtn.onclick = () => {
+		verifyModal.style.display = 'flex';
+	};
+	verifyYesBtn.onclick = () => {
+		verifyModal.style.display = 'none';
+		comedyModal.style.display = 'flex';
+	};
+	verifyNoBtn.onclick = () => {
+		verifyModal.style.display = 'none';
+	};
+	comedyYesBtn.onclick = () => {
+		comedyModal.style.display = 'none';
+		localStorage.removeItem('flappycube_badges');
+		localStorage.removeItem('flappycube_highscore');
+		localStorage.removeItem('flappycube_lastbadge');
+		location.reload();
+	};
+	comedyNoBtn.onclick = () => {
+		comedyModal.style.display = 'none';
+	};
+});
 // 100 unique badges for every 5 gates (score) up to 500
 const badgeEmojisUnique = [
 	'⭐','🌟','🥉','🥈','🥇','🏅','🏆','💎','👑','🚀',
@@ -317,16 +370,17 @@ window.addEventListener('DOMContentLoaded', renderBadges);
 
 // Achievement logic (demo: add more triggers as needed)
 function checkAchievements() {
-    // Gate achievement badges (only new system)
-    let earned = getEarnedBadges();
-    for (let i = 0; i < milestoneBadges.length; i++) {
-        const gateScore = (i + 1) * 5;
-        if (!earned[i] && score >= gateScore) {
-            setEarnedBadge(i);
-            renderBadges();
-            localStorage.setItem('flappycube_lastbadge', i);
-        }
-    }
+	// Gate achievement badges (only for current run)
+	let earned = getEarnedBadges();
+	for (let i = 0; i < milestoneBadges.length; i++) {
+		const gateScore = (i + 1) * 5;
+		// Only award if score in this run reaches the gate count
+		if (!earned[i] && score === gateScore) {
+			setEarnedBadge(i);
+			renderBadges();
+			localStorage.setItem('flappycube_lastbadge', i);
+		}
+	}
 }
 	// Dev Menu Functions
 	function devNewGame() {
