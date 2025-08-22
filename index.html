@@ -788,6 +788,10 @@ let lastScore = null;
 			pipes = [];
 			score = window._devStartScore !== undefined ? window._devStartScore : 0;
 			// Do not reset flappycube_lastbadge here, so player stays as last badge
+			// Always reset cube position to center
+			cube.x = canvas.width/2 - cube.size/2;
+			cube.y = canvas.height/2 - cube.size/2;
+			cube.vy = cube.jump;
 		}
 
 		function spawnPipe() {
