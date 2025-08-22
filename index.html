@@ -145,22 +145,23 @@
 				left: 0;
 				top: 0;
 				width: 100%;
-				max-height: 120px;
-				z-index: 100;
+				max-height: 96px; /* 120px - 24px for half a row less */
+				z-index: 1; /* Lower z-index so it sits behind the game area */
 				margin: 0;
 				display: flex;
 				flex-wrap: wrap;
 				flex-direction: row;
 				align-items: flex-start;
-				justify-content: flex-start;
+				justify-content: center;
 				gap: 0.5em;
-				padding: 1em 0.5em 0.5em 0.5em;
+				padding: 1em 0.5em 0.5em 0;
 				overflow-x: hidden;
 				overflow-y: auto;
-				background: linear-gradient(to bottom, rgba(24,24,27,0.7) 0%, rgba(24,24,27,0.2) 80%, rgba(24,24,27,0) 100%);
-				/* Smooth fade out using mask-image for modern browsers */
-				-webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-				mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+				   /* Fade starts at second row (~60px), ends at third row (~120px) */
+				   background: linear-gradient(to bottom, rgba(24,24,27,0.7) 0px, rgba(24,24,27,0.7) 60px, rgba(24,24,27,0.2) 90px, rgba(24,24,27,0) 120px);
+				   /* Smooth fade out using mask-image for modern browsers */
+				   -webkit-mask-image: linear-gradient(to bottom, black 0px, black 60px, transparent 120px);
+				   mask-image: linear-gradient(to bottom, black 0px, black 60px, transparent 120px);
 				scrollbar-width: thin;
 				scrollbar-color: #00ffe7 #22223b;
 			}
@@ -216,11 +217,68 @@
 <body>
 	<!-- Header removed -->
 	<!-- Milestone Badges -->
-	<div id="badgeBar"></div>
+	<div id="badgeBar">
+	  <!-- Actual badges will be inserted here by JS -->
+	  <div class="badge-row-invisible"></div>
+	  <div class="badge-row-invisible"></div>
+	</div>
+	<script>
+	// Secret mobile dev menu trigger: long-press top-right corner
+	document.addEventListener('DOMContentLoaded', function() {
+		let touchTimer;
+		const LONG_PRESS_DURATION = 1200; // ms
+		// Create invisible trigger area
+		const trigger = document.createElement('div');
+		trigger.style.position = 'fixed';
+		trigger.style.top = '0';
+		trigger.style.right = '0';
+		trigger.style.width = '48px';
+		trigger.style.height = '48px';
+		trigger.style.zIndex = '9999';
+		trigger.style.background = 'transparent';
+		trigger.style.touchAction = 'none';
+		trigger.style.userSelect = 'none';
+		trigger.setAttribute('aria-hidden','true');
+		document.body.appendChild(trigger);
+		trigger.addEventListener('touchstart', function(e) {
+			if (touchTimer) clearTimeout(touchTimer);
+			touchTimer = setTimeout(function() {
+				const menu = document.getElementById('devMenu');
+				menu.style.display = 'flex';
+			}, LONG_PRESS_DURATION);
+		});
+		trigger.addEventListener('touchend', function(e) {
+			if (touchTimer) clearTimeout(touchTimer);
+		});
+		trigger.addEventListener('touchmove', function(e) {
+			if (touchTimer) clearTimeout(touchTimer);
+		});
+	});
+	// Make badgeBar scroll in increments of rows and allow all rows to reach the top
+	document.addEventListener('DOMContentLoaded', function() {
+		const badgeBar = document.getElementById('badgeBar');
+		if (!badgeBar) return;
+		// Estimate row height (2em font size + gap/padding)
+		const rowHeight = 48; // px, adjust if needed for your layout
+		badgeBar.addEventListener('wheel', function(e) {
+			if (badgeBar.scrollHeight <= badgeBar.clientHeight) return;
+			e.preventDefault();
+			const direction = Math.sign(e.deltaY);
+			// Snap scroll to next/prev row
+				badgeBar.scrollTop += direction * rowHeight * 1;
+			// Clamp so last row can reach top
+			if (badgeBar.scrollTop > badgeBar.scrollHeight - badgeBar.clientHeight) {
+				badgeBar.scrollTop = badgeBar.scrollHeight - badgeBar.clientHeight;
+			}
+			if (badgeBar.scrollTop < 0) badgeBar.scrollTop = 0;
+		}, { passive: false });
+	});
+	</script>
 	<div id="badgeModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(24,24,27,0.92);z-index:99;align-items:center;justify-content:center;flex-direction:column;text-align:center;">
 		<div id="badgeModalContent" style="background:#22223b;border-radius:18px;padding:2em 1.5em;box-shadow:0 0 24px #00ffe7cc,0 0 8px #fff2;color:#fff;max-width:90vw;max-height:70vh;overflow:auto;">
 			<span id="badgeModalEmoji" style="font-size:3em;display:block;margin-bottom:0.5em;"></span>
 			<div id="badgeModalTitle" style="font-size:1.3em;font-weight:bold;margin-bottom:0.5em;"></div>
+
 			<div id="badgeModalDesc" style="font-size:1em;"></div>
 			<button onclick="closeBadgeModal()" style="margin-top:1.2em;font-size:1em;padding:0.5em 1.5em;border-radius:8px;border:none;background:#00ffe7;color:#22223b;font-family:'Press Start 2P','VT323',monospace;cursor:pointer;box-shadow:0 0 8px #00ffe7;">Close</button>
 		</div>
@@ -238,6 +296,7 @@
 			</div>
 			<button onclick="document.getElementById('devMenu').style.display='none'">Close</button>
 		</div>
+	<!-- Ensure game-container is above badgeBar -->
 	<div class="game-container" style="position:relative; z-index:2;">
 		<canvas id="gameCanvas"></canvas>
 	</div>
@@ -358,7 +417,7 @@ function renderBadges() {
 		btn.setAttribute('aria-label',badge.title);
 		btn.style.background='none';
 		btn.style.border='none';
-		btn.style.fontSize='2em';
+	btn.style.fontSize='1.7em';
 		btn.style.cursor = earned[i] ? 'pointer' : 'default';
 		btn.style.transition='transform 0.15s';
 		btn.style.filter='drop-shadow(0 0 6px #00ffe7cc)';
@@ -371,6 +430,12 @@ function renderBadges() {
 			bar.appendChild(btn);
 		}
 	});
+	// Add two invisible rows for extra scroll space
+	for (let i = 0; i < 2; i++) {
+		const spacer = document.createElement('div');
+		spacer.className = 'badge-row-invisible';
+		bar.appendChild(spacer);
+	}
 }
 
 function showBadgeModal(idx) {
@@ -631,9 +696,8 @@ function spawnCubeParticle() {
 	// Wind speed is always fixed, never affected by score
 	let wind = -pipeSpeed * 0.55;
     let vy = 0;
-    let offsetX = -cube.size * 0.6;
-    cubeParticles.push({
-        x: cube.x + cube.size/2 + offsetX,
+	cubeParticles.push({
+		x: cube.x + cube.size/2,
         y: cube.y + cube.size/2,
         vx: wind,
         vy: vy,
