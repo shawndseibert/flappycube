@@ -505,20 +505,23 @@ function getCurrentBadgeIdx() {
     return null;
 }
 function getTrailStyleForBadge(idx) {
-    // Example: pick style based on badge emoji index
-    if (idx === null) return { color: 'hsl(200,100%,60%)', shape: 'circle', glow: false };
-    // You can customize styles for specific badges here
-    const badge = milestoneBadges[idx];
-    // Use emoji code to pick color, shape, etc.
-    let color, shape, glow;
-    if (idx % 10 === 0) {
-        color = 'gold'; shape = 'star'; glow = true;
-    } else if (idx % 5 === 0) {
-        color = 'hsl(' + (idx * 36 % 360) + ',100%,60%)'; shape = 'diamond'; glow = false;
-    } else {
-        color = 'hsl(' + (idx * 18 % 360) + ',100%,60%)'; shape = 'circle'; glow = false;
-    }
-    return { color, shape, glow };
+	// All trails have the same speed, but each badge gets a unique deterministic configuration
+	if (idx === null) return { color: 'hsl(200,100%,60%)', shape: 'circle', glow: false, animate: false };
+	// Use badge index as a seed for deterministic uniqueness
+	function seededRand(seed, min, max) {
+		// Simple LCG for repeatable pseudo-random
+		let x = Math.sin(seed + 1) * 10000;
+		return Math.floor((x - Math.floor(x)) * (max - min + 1)) + min;
+	}
+	const hue = seededRand(idx * 3, 0, 359);
+	const sat = seededRand(idx * 7, 60, 99);
+	const light = seededRand(idx * 11, 45, 80);
+	const color = `hsl(${hue},${sat}%,${light}%)`;
+	const shapes = ['circle', 'star', 'diamond', 'hexagon', 'triangle', 'square', 'heart', 'cross', 'burst'];
+	const shape = shapes[seededRand(idx * 13, 0, shapes.length - 1)];
+	const glow = seededRand(idx * 17, 0, 1) === 1;
+	const animate = seededRand(idx * 19, 0, 2) === 2;
+	return { color, shape, glow, animate };
 }
 function spawnCubeParticle() {
     let badgeIdx = getCurrentBadgeIdx();
@@ -529,7 +532,8 @@ function spawnCubeParticle() {
     let size = 6 + t * 10;
     let badgeTrailFactor = (1 + badgeIdx * 0.12);
     let life = Math.floor((48 + t * 48) * badgeTrailFactor);
-    let wind = -pipeSpeed;
+	// Wind speed is always fixed, never affected by score
+	let wind = -pipeSpeed * 0.55;
     let vy = 0;
     let offsetX = -cube.size * 0.6;
     cubeParticles.push({
