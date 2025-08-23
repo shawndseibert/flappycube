@@ -294,6 +294,7 @@
 				<input id="devScoreInput" type="number" min="0" max="9999" placeholder="Set Starting Score" style="width:120px;font-size:1em;padding:0.3em 0.7em;border-radius:6px;border:1px solid #00ffe7;background:#22223b;color:#fff;margin-right:0.5em;">
 				<button onclick="devSetScore()" style="background:#00ffe7;color:#22223b;">Set Score</button>
 			</div>
+			<button id="botModeBtn" onclick="toggleBotMode()" style="background:#22223b;color:#00ffe7;">Bot Mode: Off</button>
 			<button onclick="document.getElementById('devMenu').style.display='none'">Close</button>
 		</div>
 	<!-- Ensure game-container is above badgeBar -->
@@ -505,6 +506,14 @@ function checkAchievements() {
 			menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
 		}
 	});
+
+	// Bot Mode logic
+	let botMode = false;
+	function toggleBotMode() {
+		botMode = !botMode;
+		const btn = document.getElementById('botModeBtn');
+		btn.textContent = `Bot Mode: ${botMode ? 'On' : 'Off'}`;
+	}
 
 	// Skin Picker Logic
 
@@ -849,8 +858,8 @@ let lastScore = null;
 			if (!gameActive) {
 				cube.y = canvas.height/2 - cube.size/2;
 				cube.vy = 0;
+				resetGame();
 			}
-			resetGame();
 			drawUI();
 		}
 		window.addEventListener('resize', resizeCanvas);
@@ -1063,6 +1072,23 @@ let lastScore = null;
 				// Particle trail logic
 				spawnCubeParticle();
 				updateCubeParticles();
+				// Bot Mode: auto jump if enabled
+				if (botMode) {
+					// Find the next pipe in front of the cube
+					const nextPipe = pipes.find(pipe => pipe.x + pipe.width > cube.x);
+					if (nextPipe) {
+						const cubeBottom = cube.y + cube.size;
+						const safeZoneTop = nextPipe.gapY + 4;
+						// Move the safe zone up a bit so bot jumps earlier
+						const safeZoneBottom = nextPipe.gapY + nextPipe.gapHeight - 16; // was -4, now -16
+						// If cube is below safe zone, jump
+						if (cubeBottom > safeZoneBottom && cube.vy > 0) {
+							cube.vy = cube.jump;
+							playJump();
+						}
+						// If cube is above safe zone, let gravity pull down
+					}
+				}
 				// Floor collision
 				if (cube.y + cube.size > canvas.height) {
 					cube.y = canvas.height - cube.size;
