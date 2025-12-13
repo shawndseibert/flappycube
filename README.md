@@ -1,1 +1,1 @@
-[GitHub Page](https://shawndseibert.github.io/flappycube/)
+[Flappy Cube](https://shawndseibert.github.io/flappycube/)
